@@ -3,6 +3,7 @@
 import { monthShort, parseYmd, addDays, fmtDate } from './format.js';
 import { t } from './i18n.js';
 
+const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function niceStep(range, count) {
@@ -77,6 +78,15 @@ export function lineChart(host, { data, height = 190, yFmt = (v) => v, tipFmt, g
 
   host.insertAdjacentHTML('beforeend', `<svg class="chart-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${t('Çizgi grafik')}">${g}</svg>`);
   const svg = host.querySelector('svg');
+  const line = svg.querySelector('.line');
+  if (line && !reduced()) {
+    const len = line.getTotalLength();
+    line.style.strokeDasharray = len;
+    line.style.strokeDashoffset = len;
+    line.getBoundingClientRect();
+    line.style.transition = 'stroke-dashoffset 1s cubic-bezier(.3,.7,.2,1)';
+    line.style.strokeDashoffset = 0;
+  }
   const hover = svg.querySelector('.hover');
   const tip = tooltip(host);
   const move = (ev) => {
@@ -98,12 +108,12 @@ export function lineChart(host, { data, height = 190, yFmt = (v) => v, tipFmt, g
 }
 
 // data: [{ label, value, tip }]
-export function columnChart(host, { data, height = 170, fmt = (v) => v }) {
+export function columnChart(host, { data, height = 170, fmt = (v) => v, goal = null }) {
   host.classList.add('chart');
   host.innerHTML = '';
   const W = Math.max(260, host.clientWidth || 320), H = height;
-  const pl = 8, pr = 8, pt = 20, pb = 24;
-  const max = Math.max(1, ...data.map((d) => d.value));
+  const pl = 8, pr = goal != null ? 52 : 8, pt = 20, pb = 24;
+  const max = Math.max(1, goal || 0, ...data.map((d) => d.value));
   const band = (W - pl - pr) / data.length;
   const bw = Math.min(24, band * 0.62);
   const Y = (v) => pt + (1 - v / max) * (H - pt - pb);
@@ -114,12 +124,14 @@ export function columnChart(host, { data, height = 170, fmt = (v) => v }) {
     if (d.value > 0) {
       const r = Math.min(4, h);
       const x = cx - bw / 2;
-      g += `<path class="bar${d.dim ? ' dim' : ''}" d="M${x} ${H - pb}V${y + r}Q${x} ${y} ${x + r} ${y}H${x + bw - r}Q${x + bw} ${y} ${x + bw} ${y + r}V${H - pb}Z"/>`;
+      const dim = d.dim || (goal != null && d.value < goal);
+      g += `<path class="bar${dim ? ' dim' : ''}" style="--i:${i}" d="M${x} ${H - pb}V${y + r}Q${x} ${y} ${x + r} ${y}H${x + bw - r}Q${x + bw} ${y} ${x + bw} ${y + r}V${H - pb}Z"/>`;
       g += `<text class="val" x="${cx}" y="${y - 5}" text-anchor="middle">${esc(fmt(d.value))}</text>`;
     }
     g += `<text class="tick" x="${cx}" y="${H - 7}" text-anchor="middle">${esc(d.label)}</text>`;
     g += `<rect class="hit" data-i="${i}" x="${cx - band / 2}" y="0" width="${band}" height="${H}" fill="transparent"/>`;
   });
+  if (goal != null) g += `<line class="goal" x1="${pl}" x2="${W - pr + 6}" y1="${Y(goal)}" y2="${Y(goal)}"/><text class="goal-label" x="${W - 2}" y="${Y(goal) + 4}" text-anchor="end">${esc(t('Hedef {v}', { v: goal }))}</text>`;
   host.insertAdjacentHTML('beforeend', `<svg class="chart-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${t('Sütun grafik')}">${g}</svg>`);
   const tip = tooltip(host);
   host.querySelectorAll('.hit').forEach((el) => {
@@ -171,7 +183,7 @@ export function heatmap(host, { from, to, days }) {
         }
       }
       const v = days.get(date);
-      g += `<rect class="cell l${v?.level || 0}" data-d="${date}" x="${22 + w * size}" y="${16 + d * size}" width="${cell}" height="${cell}" rx="2.5"/>`;
+      g += `<rect class="cell l${v?.level || 0}" style="--w:${w}" data-d="${date}" x="${22 + w * size}" y="${16 + d * size}" width="${cell}" height="${cell}" rx="2.5"/>`;
     }
   }
   const wrap = document.createElement('div');

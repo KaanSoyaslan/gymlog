@@ -45,7 +45,7 @@ export function demoState() {
       sessions.push({
         id: 'demo-' + sessions.length, date, bodyWeight: Math.round(bw * 10) / 10, groups: plan.groups, items,
         note: r() < 0.12 ? t(['Enerjim yüksekti', 'Uykusuzdum, hafif geçti', 'Makine bozuktu, değiştirdim', 'Harika antrenman'][Math.floor(r() * 4)]) : '',
-        mood: 3 + Math.floor(r() * 3), createdAt: sessions.length,
+        mood: 3 + Math.floor(r() * 3), createdAt: sessions.length, duration: 44 + Math.floor(r() * 32),
       });
       k++;
     }
@@ -55,7 +55,11 @@ export function demoState() {
     v: 1, sessions,
     templates: PLANS.map((p) => ({ id: p.id, name: t(p.name), groups: p.groups, items: p.items.map(([exId, w, reps, sets]) => ({ exId, sets: Array.from({ length: sets }, () => ({ w: w ?? undefined, r: reps })) })) })),
     weighIns: [{ date: '2026-07-28', kg: 80.9 }, { date: '2026-08-04', kg: 80.6 }],
-    customEx: [], exEdits: {}, draft: null,
-    settings: { goalWeight: 78, theme: 'auto', lastBackup: null },
+    customEx: [], exEdits: { 'rear-delt-machine': { setup: t('Koltuk 4, kollar 2. kademe') } }, draft: null,
+    measurements: ['2026-01-10', '2026-03-07', '2026-05-09', '2026-07-04', '2026-09-05', '2026-10-24'].map((date, i) => ({
+      date, waist: Math.round((91 - i * 1.1) * 10) / 10, chest: Math.round((100 + i * 0.5) * 10) / 10, arm: Math.round((34.5 + i * 0.35) * 10) / 10,
+      thigh: Math.round((57 + i * 0.2) * 10) / 10, hip: Math.round((101 - i * 0.6) * 10) / 10,
+    })),
+    settings: { goalWeight: 78, theme: 'auto', lastBackup: null, weeklyGoal: 3 },
   };
 }

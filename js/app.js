@@ -10,12 +10,16 @@ import {
   weightSeries, addWeighIn, lastWeight,
   upsertTemplate, deleteTemplate, templateLastDone, suggestNext, suggestPlans, templateFromSession,
   newDraft, itemsFromTemplate, itemsFromSession,
+  restFor, suggestIncrease, weekProgress, groupSets, sessionsSince, MEASURES, addMeasurement, deleteMeasurement,
 } from './store.js';
-import { today, fmtDate, relDays, num, parseNum, daysBetween, addDays, weekStart, monthName, monthShort, dayShort, parseYmd, compact } from './format.js';
+import { today, fmtDate, relDays, num, parseNum, daysBetween, addDays, monthName, monthShort, dayShort, dayMini, parseYmd, compact } from './format.js';
 import { h, icon, sheet, confirmBox, menu, toast, chips, segmented, closeAll, settled } from './ui.js';
 import { lineChart, columnChart, barList, heatmap } from './charts.js';
 import { parseNotes, norm } from './importer.js';
 import { demoState } from './demo.js';
+import { haptic, confetti, countUp, unlockAudio, stagger, pop } from './juice.js';
+import { startRest, stopRest, keepAwake } from './timer.js';
+import { bodyMap } from './bodymap.js';
 
 const view = document.getElementById('view');
 const nav = document.getElementById('nav');
@@ -112,11 +116,21 @@ function parseRoute() {
 function render({ keepScroll = false, top = false } = {}) {
   const { tab, sub } = parseRoute();
   const changed = current !== `${tab}/${sub}`;
+  const tabChanged = current?.split('/')[0] !== tab;
   current = `${tab}/${sub}`;
   const y = window.scrollY;
   const page = VIEWS[tab](sub);
+  if (changed) {
+    page.classList.add('page-in');
+    stagger(page);
+  }
   view.replaceChildren(page);
-  nav.querySelectorAll('.nav-item').forEach((a) => a.classList.toggle('on', a.dataset.tab === tab));
+  nav.querySelectorAll('.nav-item').forEach((a) => {
+    const on = a.dataset.tab === tab;
+    a.classList.toggle('on', on);
+    if (on && tabChanged) pop(a.querySelector('.ic'));
+  });
+  keepAwake(tab === 'workout' && !!state.draft);
   if ((changed && !keepScroll) || top) window.scrollTo(0, 0);
   else window.scrollTo(0, y);
 }
@@ -152,10 +166,19 @@ function StartView() {
 
   const last = all[0];
   if (last) {
-    const week = all.filter((s) => s.date >= weekStart(today())).length;
+    const wp = weekProgress();
+    const trained = new Set(all.filter((s) => s.date >= wp.cur).map((s) => s.date));
+    page.append(h('div.card.week-card', null,
+      goalRing(wp.thisWeek, wp.goal, 52),
+      h('div.grow', null,
+        h('b', null, t('Bu hafta {a}/{b}', { a: wp.thisWeek, b: wp.goal })),
+        h('span.muted.small', null, wp.streak ? `🔥 ${t('{n} haftalık seri', { n: wp.streak })}` : wp.thisWeek >= wp.goal ? t('Hedef tamam, harika!') : t('{n} antrenman kaldı', { n: wp.goal - wp.thisWeek })),
+        h('div.week-dots', null, Array.from({ length: 7 }, (_, k) => {
+          const d = addDays(wp.cur, k);
+          return h('span' + (trained.has(d) ? '.on' : '') + (d === today() ? '.today' : ''), { title: fmtDate(d, { weekday: true }), style: `--d:${k * 60}ms` }, dayMini(parseYmd(d).getDay()));
+        })))));
     page.append(h('div.status', null,
       h('div', null, h('span.muted', null, t('Son antrenman')), h('b', null, `${relDays(last.date)}`)),
-      h('div', null, h('span.muted', null, t('Bu hafta')), h('b', null, t('{n} antrenman', { n: week }))),
       lastWeight() ? h('div', null, h('span.muted', null, t('Kilo')), h('b', null, `${num(lastWeight().kg)} kg`)) : null));
   }
 
@@ -219,6 +242,7 @@ function demoBanner() {
 }
 
 async function setDraft(d) {
+  unlockAudio();
   if (state.draft && state.draft.items.length) {
     const ok = await confirmBox(t('Devam eden bir antrenman var. Onu silip yenisini başlatayım mı?'), { ok: t('Yenisini başlat'), danger: true });
     if (!ok) return;
@@ -238,13 +262,25 @@ function startFromSession(s) {
   setDraft(newDraft({ date: today(), groups: sessionGroups(s).slice(), items: itemsFromSession(s) }));
 }
 
+const clock = (ms) => {
+  const sec = Math.max(0, Math.floor(ms / 1000));
+  const hh = Math.floor(sec / 3600), mm = Math.floor((sec % 3600) / 60), ss = sec % 60;
+  return (hh ? `${hh}:${String(mm).padStart(2, '0')}` : `${mm}`) + `:${String(ss).padStart(2, '0')}`;
+};
+
 function DraftView() {
   const d = state.draft;
   const page = h('div.page');
   const editor = Editor(d, { mode: 'draft', changed: saveSoon });
+  const elapsed = h('span.elapsed');
+  if (d.date === today() && d.startedAt) {
+    const tick = () => { elapsed.textContent = ` · ⏱ ${clock(Date.now() - d.startedAt)}`; };
+    tick();
+    const iv = setInterval(() => { if (!elapsed.isConnected) clearInterval(iv); else tick(); }, 1000);
+  }
   page.append(
     h('header.page-head.sticky', null,
-      h('div', null, h('h1', null, t('Bugünkü antrenman')), h('p.sub', null, t('{n} hareket', { n: d.items.length }))),
+      h('div', null, h('h1', null, t('Bugünkü antrenman')), h('p.sub', null, h('span.count', null, t('{n} hareket', { n: d.items.length })), elapsed)),
       h('button.btn.primary.sm', { onclick: () => saveDraft() }, icon('check'), t('Kaydet'))),
     editor,
     h('div.stack.mt', null,
@@ -258,6 +294,8 @@ async function discardDraft() {
   if (!ok) return;
   state.draft = null;
   save();
+  stopRest();
+  keepAwake(false);
   rerender();
 }
 
@@ -270,16 +308,25 @@ function cleanSet(s) {
 function finalize(doc) {
   const s = clone(doc);
   s.items = s.items
-    .map((it) => ({ exId: it.exId, sets: it.sets.filter(hasValue).map(cleanSet), note: (it.note || '').trim(), skipped: !!it.skipped }))
+    .map((it) => ({
+      exId: it.exId, sets: it.sets.filter(hasValue).map(cleanSet), note: (it.note || '').trim(), skipped: !!it.skipped,
+      ...(it.bump ? { bump: true } : {}), ...(it.ss ? { ss: it.ss } : {}),
+    }))
     .filter((it) => it.sets.length || it.skipped || it.note);
   s.note = (s.note || '').trim();
   if (!s.groups?.length) s.groups = sessionGroups(s);
   delete s.startedAt;
+  delete s.comebackDone;
   return s;
 }
 
 async function saveDraft() {
-  const s = finalize(state.draft);
+  const d0 = state.draft;
+  const s = finalize(d0);
+  if (d0.date === today() && d0.startedAt) {
+    const mins = Math.round((Date.now() - d0.startedAt) / 60000);
+    if (mins >= 5 && mins <= 300) s.duration = mins;
+  }
   if (!s.date) { toast(t('Tarih seç')); return; }
   if (!s.items.length) {
     if (s.bodyWeight) {
@@ -299,8 +346,12 @@ async function saveDraft() {
   upsertSession(s);
   state.draft = null;
   save();
+  stopRest();
+  keepAwake(false);
   render({ top: true });
+  haptic([20, 40, 20]);
   summarySheet(s, prs);
+  setTimeout(() => confetti({ count: prs.length ? 170 : 100, power: prs.length ? 1.2 : 1 }), 250);
 }
 
 function summarySheet(s, prs) {
@@ -320,10 +371,12 @@ function summarySheet(s, prs) {
     title: t('Antrenman kaydedildi 💪'),
     body: h('div', null,
       h('div.tiles', null,
-        tile(t('Hareket'), s.items.filter((it) => !it.skipped).length),
-        tile(t('Set sayısı'), sets),
-        tile(t('Hacim'), `${compact(vol)} kg`, diff != null ? t('{diff}% geçen sefere göre', { diff: `${diff >= 0 ? '+' : ''}${diff}` }) : null),
+        tile(t('Hareket'), s.items.filter((it) => !it.skipped).length, null, s.items.filter((it) => !it.skipped).length),
+        tile(t('Set sayısı'), sets, null, sets),
+        tile(t('Hacim'), `${compact(vol)} kg`, diff != null ? t('{diff}% geçen sefere göre', { diff: `${diff >= 0 ? '+' : ''}${diff}` }) : null, vol < 10000 ? vol : null, ' kg'),
+        s.duration ? tile(t('Süre'), `${s.duration} ${dk()}`, null, s.duration, ` ${dk()}`) : null,
         s.bodyWeight ? tile(t('Kilo'), `${num(s.bodyWeight)} kg`) : null),
+      h('div.summary-map', null, bodyMap(groupSets([s]), { caption: false })),
       prs.length ? h('div.prs', null,
         h('h3', null, icon('trophy'), t(prs.length > 1 ? 'Yeni rekorlar' : 'Yeni rekor')),
         prs.map((p) => h('div.pr-row', null, h('b', null, ex(p.exId).name), h('span', null, p.prev ? `${p.prev} → ${p.label}` : p.label))))
@@ -332,6 +385,7 @@ function summarySheet(s, prs) {
       !hasPlan ? h('button.btn.grow', { onclick: () => { sh.close(); planFromSession(s); } }, t('Plan olarak kaydet')) : null,
       h('button.btn.primary.grow', { onclick: () => sh.close() }, t('Tamam'))),
   });
+  sh.el.querySelectorAll('[data-count]').forEach((el) => countUp(el, Number(el.dataset.count), { suffix: el.dataset.suffix || '' }));
 }
 
 function similarItems(a, b) {
@@ -341,8 +395,25 @@ function similarItems(a, b) {
   return c / (A.size + B.size - c || 1) >= 0.5;
 }
 
-function tile(label, value, delta) {
-  return h('div.tile', null, h('span.tile-label', null, label), h('b.tile-value', null, String(value)), delta ? h('span.tile-delta', null, delta) : null);
+// count verilirse değer sıfırdan sayılarak gelir
+function tile(label, value, delta, count = null, suffix = '') {
+  return h('div.tile', null, h('span.tile-label', null, label),
+    h('b.tile-value', count != null ? { dataset: { count: String(count), suffix } } : null, String(value)),
+    delta ? h('span.tile-delta', null, delta) : null);
+}
+
+function goalRing(done, goal, size = 44) {
+  const C = 2 * Math.PI * 16;
+  const p = Math.min(1, done / Math.max(1, goal));
+  const el = h('div.ring' + (done >= goal ? '.full' : ''), { style: { width: `${size}px`, height: `${size}px` } });
+  el.innerHTML = `<svg viewBox="0 0 40 40" aria-hidden="true"><circle class="track" cx="20" cy="20" r="16"/><circle class="bar" cx="20" cy="20" r="16" style="stroke-dasharray:${C};stroke-dashoffset:${C}"/></svg><span>${done}/${goal}</span>`;
+  requestAnimationFrame(() => requestAnimationFrame(() => { el.querySelector('.bar').style.strokeDashoffset = C * (1 - p); }));
+  return el;
+}
+
+function toggleRow(title, desc, on, onChange) {
+  const input = h('input', { type: 'checkbox', checked: on, onchange: (e) => onChange(e.target.checked) });
+  return h('label.toggle-row', null, h('div.grow', null, h('b', null, title), h('p.muted.small', null, desc)), h('span.switch', null, input, h('span.knob')));
 }
 
 // ---------- Düzenleyici (taslak, kayıtlı antrenman ve plan için ortak) ----------
@@ -367,13 +438,44 @@ function Editor(doc, { mode, changed = () => {} }) {
     chips(GROUPS, doc.groups || [], (sel) => { doc.groups = sel; changed(); })));
   wrap.append(meta);
 
+  // Uzun aradan dönüş: ağırlıkları %75'e çekmeyi öner
+  if (mode === 'draft' && !doc.comebackDone) {
+    const day = doc.date || today();
+    const prevS = sessions().find((x) => x.date < day && x.items.length);
+    const gap = prevS ? daysBetween(prevS.date, day) : 0;
+    if (gap >= 21 && doc.items.some((it) => ex(it.exId).type === 'w' && it.sets.some((st) => st.w))) {
+      const banner = h('div.banner.comeback', null, icon('info'),
+        h('div.grow', null, h('b', null, t('{n} gündür ara verdin', { n: gap })), h('p.small', null, t("Sakatlanmamak için ağırlıkları %75'e düşürmek iyi bir başlangıç."))),
+        h('div.stack', null,
+          h('button.btn.sm.primary', { onclick: () => {
+            for (const it of doc.items) {
+              if (ex(it.exId).type !== 'w') continue;
+              for (const st of it.sets) if (st.w) st.w = st.w >= 20 ? Math.round((st.w * 0.75) / 2.5) * 2.5 : Math.round(st.w * 0.75 * 2) / 2;
+            }
+            doc.comebackDone = true;
+            changed();
+            paintItems();
+            banner.remove();
+            haptic(15);
+            toast(t("Ağırlıklar %75'e düşürüldü"));
+          } }, t('%75 yap')),
+          h('button.btn.sm.ghost', { onclick: () => { doc.comebackDone = true; changed(); banner.remove(); } }, t('Gerek yok'))));
+      wrap.append(banner);
+    }
+  }
+
   const list = h('div.items');
   wrap.append(list);
   const ctx = { mode, doc, changed, repaint: () => paintItems() };
   function paintItems() {
-    list.replaceChildren(...doc.items.map((_, i) => ItemCard(doc, i, ctx)));
+    const nodes = [];
+    doc.items.forEach((it, i) => {
+      if (i > 0 && it.ss && doc.items[i - 1].ss === it.ss) nodes.push(h('div.ss-link', null, icon('link'), t('Süperset')));
+      nodes.push(ItemCard(doc, i, ctx));
+    });
+    list.replaceChildren(...nodes);
     if (!doc.items.length) list.append(h('p.muted.center.pad', null, t('Henüz hareket yok. Aşağıdan ekle ya da önceki antrenmanı kopyala.')));
-    const sub = wrap.closest('.page')?.querySelector('.page-head .sub');
+    const sub = wrap.closest('.page')?.querySelector('.page-head .sub .count');
     if (sub && mode === 'draft') sub.textContent = t('{n} hareket', { n: doc.items.length });
   }
   paintItems();
@@ -386,7 +488,10 @@ function Editor(doc, { mode, changed = () => {} }) {
         doc.items.push({ exId: id, sets: defaultSets(id, isPlan), note: '', skipped: false });
         changed();
         paintItems();
-        requestAnimationFrame(() => list.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+        haptic(10);
+        const added = list.lastElementChild;
+        added?.classList.add('rise');
+        requestAnimationFrame(() => added?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
       },
     }),
   }, icon('plus'), t('Hareket ekle')));
@@ -423,10 +528,13 @@ function ItemCard(doc, i, ctx) {
   const isPlan = ctx.mode === 'template';
   const prev = isPlan ? null : lastPerf(it.exId, { before: doc.date, excludeId: doc.id });
   const rec = isPlan ? null : records(it.exId, { excludeId: doc.id });
-  const card = h('div.ex-card' + (it.skipped ? '.skipped' : ''));
+  const card = h('div.ex-card' + (it.skipped ? '.skipped' : '') + (it.ss ? '.in-ss' : ''));
 
   const more = h('button.icon-btn', { 'aria-label': t('Hareket seçenekleri'), onclick: () => menu(e.name, [
     { label: t('Hareketi değiştir'), icon: 'swap', action: () => swapItem(doc, i, ctx) },
+    !isPlan && { label: t(it.bump ? 'Artır işaretini kaldır' : 'Bir dahakine artır'), icon: 'up', action: () => { if (it.bump) delete it.bump; else it.bump = true; haptic(10); ctx.changed(); ctx.repaint(); } },
+    i < doc.items.length - 1 && { label: t(it.ss && doc.items[i + 1].ss === it.ss ? 'Süperseti ayır' : 'Sonrakiyle süperset yap'), icon: 'link', action: () => { toggleSuperset(doc, i); ctx.changed(); ctx.repaint(); } },
+    { label: t(e.setup ? 'Makine ayarını düzenle' : 'Makine ayarı ekle'), icon: 'wrench', action: () => editSetup(it.exId, ctx.repaint) },
     i > 0 && { label: t('Yukarı taşı'), icon: 'up', action: () => { [doc.items[i - 1], doc.items[i]] = [doc.items[i], doc.items[i - 1]]; ctx.changed(); ctx.repaint(); } },
     i < doc.items.length - 1 && { label: t('Aşağı taşı'), icon: 'down', action: () => { [doc.items[i + 1], doc.items[i]] = [doc.items[i], doc.items[i + 1]]; ctx.changed(); ctx.repaint(); } },
     { label: t('Hareket bilgisi'), icon: 'info', action: () => exerciseDetail(it.exId) },
@@ -444,16 +552,69 @@ function ItemCard(doc, i, ctx) {
     h('div.ex-title', null,
       h('b', null, e.name),
       h('span.muted.small', null, [e.short !== e.name && e.short, ...e.groups.map((g) => GROUP_NAME[g])].filter((x, k, a) => x && a.indexOf(x) === k).join(' · ')),
-      info.length ? h('span.ex-prev.small', null, info) : null),
+      info.length ? h('span.ex-prev.small', null, info) : null,
+      e.setup ? h('button.setup', { onclick: () => editSetup(it.exId, ctx.repaint) }, icon('wrench'), e.setup) : null),
     more));
+
+  // Ağırlık önerisi
+  const sug = !isPlan && !it.skipped ? suggestIncrease(it.exId, { before: doc.date, excludeId: doc.id }) : null;
+  const curMax = Math.max(0, ...it.sets.map((st) => st.w || 0));
+  if (sug && curMax <= sug.from) {
+    card.append(h('button.suggest-chip', { onclick: () => {
+      for (const st of it.sets) if (st.w === sug.from) st.w = sug.to;
+      haptic([10, 30, 10]);
+      ctx.changed();
+      ctx.repaint();
+      toast(t('{name}: {w} kg, hadi!', { name: e.short, w: num(sug.to) }));
+    } }, icon('up'), h('span', null, h('b', null, t('{w} kg dene', { w: num(sug.to) })), h('small', null, t(sug.flagged ? 'geçen sefer "artır" demiştin' : 'geçen sefer tüm setler tamamdı')))));
+  }
+  if (it.bump) card.append(h('button.bump-badge', { onclick: () => { delete it.bump; ctx.changed(); ctx.repaint(); } }, icon('up'), t('Bir dahakine artırılacak')));
 
   if (it.skipped) card.append(h('div.skip-badge', null, icon('skip'), t('Pas geçildi')));
 
   // Setler
-  const table = h('div.sets', { style: `--cols:${fields.length}` });
-  table.append(h('div.set-row.head', null, h('span.set-no', null, t('Set')), fields.map((f) => h('span.set-label' + (f.small ? '.small' : ''), null, t(f.label))), h('span.set-del')));
+  const table = h('div.sets' + (isPlan ? '.plan' : ''), { style: `--cols:${fields.length}` });
+  table.append(h('div.set-row.head', null, h('span.set-no', null, t('Set')), fields.map((f) => h('span.set-label' + (f.small ? '.small' : ''), null, t(f.label))), !isPlan ? h('span') : null, h('span.set-del')));
+
+  // Set ✓: boş alanları geçen seferkiyle doldurur, rekorda konfeti, süpersette sıradaki harekete geçer, yoksa dinlenme sayacını başlatır.
+  let celebrated = false;
+  const onCheck = (set, j, row, check, inputs) => {
+    unlockAudio();
+    if (!set.done) {
+      for (const f of fields) {
+        if (f.k === 'x' || set[f.k] != null) continue;
+        const ph = prev?.item.sets[j]?.[f.k] ?? prev?.item.sets[prev.item.sets.length - 1]?.[f.k];
+        if (ph != null) { set[f.k] = ph; inputs[f.k].value = num(ph); }
+      }
+    }
+    if (set.done) delete set.done; else set.done = true;
+    row.classList.toggle('done', !!set.done);
+    check.classList.toggle('done', !!set.done);
+    check.setAttribute('aria-pressed', String(!!set.done));
+    pop(check);
+    haptic(set.done ? 18 : 6);
+    ctx.changed();
+    if (!set.done) return;
+    const reps = (set.r || 0) + (set.x || 0);
+    const isPR = !celebrated && rec && ((e.type === 'w' && rec.maxW && set.w > rec.maxW) || (e.type === 'bw' && rec.maxR && reps > rec.maxR));
+    if (isPR) {
+      celebrated = true;
+      const r = check.getBoundingClientRect();
+      confetti({ x: r.left + r.width / 2, y: r.top + r.height / 2, count: 70, power: 0.8 });
+      haptic([30, 50, 30]);
+      toast(`🏆 ${t('Yeni rekor')}: ${e.short} ${e.type === 'w' ? `${num(set.w)} kg` : reps}`);
+    }
+    if (it.ss && doc.items[i + 1]?.ss === it.ss) {
+      const next = card.parentElement?.querySelectorAll('.ex-card')[i + 1];
+      if (next) { next.scrollIntoView({ behavior: 'smooth', block: 'center' }); pop(next); }
+    } else if (ctx.mode === 'draft' && doc.date === today()) {
+      startRest(restFor(it.exId), e.short);
+    }
+  };
+
   it.sets.forEach((set, j) => {
-    const row = h('div.set-row');
+    const row = h('div.set-row' + (set.done ? '.done' : ''));
+    const inputs = {};
     const markPR = () => {
       const pr = e.type === 'w' && rec?.maxW && set.w > rec.maxW;
       row.classList.toggle('pr', !!pr);
@@ -492,7 +653,13 @@ function ItemCard(doc, i, ctx) {
         const all = [...card.querySelectorAll('.set-in')];
         all[all.indexOf(input) + 1]?.focus();
       });
+      inputs[f.k] = input;
       row.append(input);
+    }
+    if (!isPlan) {
+      const check = h('button.set-check' + (set.done ? '.done' : ''), { type: 'button', 'aria-label': t('{n}. seti tamamla', { n: j + 1 }), 'aria-pressed': String(!!set.done) }, icon('check'));
+      check.addEventListener('click', () => onCheck(set, j, row, check, inputs));
+      row.append(check);
     }
     row.append(h('button.icon-btn.sm.set-del', { 'aria-label': t('{n}. seti sil', { n: j + 1 }), onclick: () => { it.sets.splice(j, 1); ctx.changed(); ctx.repaint(); } }, icon('x')));
     markPR();
@@ -513,6 +680,36 @@ function ItemCard(doc, i, ctx) {
     !isPlan ? h('button.btn.sm.ghost' + (it.skipped ? '.on' : ''), { onclick: () => { it.skipped = !it.skipped; ctx.changed(); ctx.repaint(); } }, icon('skip'), t(it.skipped ? 'Pas geri al' : 'Pas geç')) : null,
     h('button.btn.sm.ghost', { onclick: () => swapItem(doc, i, ctx) }, icon('swap'), t('Değiştir'))));
   return card;
+}
+
+function toggleSuperset(doc, i) {
+  const a = doc.items[i], b = doc.items[i + 1];
+  if (a.ss && b.ss === a.ss) {
+    const old = a.ss, fresh = uid();
+    for (let k = i + 1; k < doc.items.length && doc.items[k].ss === old; k++) doc.items[k].ss = fresh;
+  } else {
+    const id = a.ss || uid(), old = b.ss;
+    a.ss = id;
+    for (let k = i + 1; k < doc.items.length && (k === i + 1 || (old && doc.items[k].ss === old)); k++) doc.items[k].ss = id;
+  }
+  // Tek kalan hareketin süperset işaretini kaldır
+  doc.items.forEach((it, k) => {
+    if (it.ss && doc.items[k - 1]?.ss !== it.ss && doc.items[k + 1]?.ss !== it.ss) delete it.ss;
+  });
+  haptic(12);
+}
+
+function editSetup(exId, done) {
+  const e = ex(exId);
+  const input = h('input.input', { value: e.setup || '', placeholder: t('ör. koltuk 4, göğüs pedi 2') });
+  const sh = sheet({
+    title: `${t('Makine ayarı')} · ${e.short}`,
+    body: h('div.form', null, h('p.muted.small', null, t('Her seferinde bu hareketin üstünde görünür.')), input),
+    footer: h('div.row.gap', null,
+      e.setup ? h('button.btn.ghost', { onclick: () => { saveExercise({ id: exId, setup: '' }); sh.close(); done?.(); } }, t('Sil')) : null,
+      h('button.btn.primary.grow', { onclick: () => { saveExercise({ id: exId, setup: input.value.trim() }); sh.close(); haptic(10); done?.(); } }, t('Kaydet'))),
+  });
+  setTimeout(() => input.focus(), 250);
 }
 
 function swapItem(doc, i, ctx) {
@@ -590,6 +787,7 @@ function exerciseDetail(id) {
     h('h3.ex-name', null, e.name),
     h('p.muted', null, [e.short !== e.name && e.short, ...e.groups.map((g) => GROUP_NAME[g]), TYPES.find((ty) => ty.id === e.type)?.name].filter(Boolean).join(' · '))));
   if (e.tip) body.append(h('p.tip', null, icon('info'), e.tip));
+  if (e.setup) body.append(h('p.tip.setup-tip', null, icon('wrench'), e.setup));
   if (hist.length) {
     body.append(h('div.tiles', null,
       tile(t('Yapıldı'), t('{n} kez', { n: hist.length })),
@@ -626,8 +824,8 @@ function exerciseDetail(id) {
 function exerciseForm(id, { groups = [], onSaved } = {}) {
   const e = id ? ex(id) : null;
   const data = e
-    ? { id: e.id, name: e.name, short: e.short, groups: e.groups.slice(), type: e.type, anim: e.anim, aliases: (e.aliases || []).join(', '), tip: e.tip || '' }
-    : { name: '', short: '', groups: groups.slice(0, 2), type: 'w', anim: DEFAULT_ANIM[groups[0]] || 'dbCurl', aliases: '', tip: '' };
+    ? { id: e.id, name: e.name, short: e.short, groups: e.groups.slice(), type: e.type, anim: e.anim, aliases: (e.aliases || []).join(', '), tip: e.tip || '', setup: e.setup || '', rest: e.rest ?? null }
+    : { name: '', short: '', groups: groups.slice(0, 2), type: 'w', anim: DEFAULT_ANIM[groups[0]] || 'dbCurl', aliases: '', tip: '', setup: '', rest: null };
   let animTouched = !!e;
   const animGrid = h('div.anim-grid');
   const paintAnims = () => animGrid.replaceChildren(...ANIM_CHOICES.map(([key, tr, en]) => h('button.anim-choice' + (data.anim === key ? '.on' : ''), {
@@ -646,7 +844,9 @@ function exerciseForm(id, { groups = [], onSaved } = {}) {
     h('div.field', null, h('span', null, t('Kayıt türü')), segmented(TYPES, data.type, (v) => { data.type = v; })),
     h('div.field', null, h('span', null, t('Animasyon')), animGrid),
     h('label.field', null, h('span', null, t('Diğer adları (virgülle)')), h('input.input', { value: data.aliases, placeholder: t('ör. göğüs açış, fly'), oninput: (ev) => { data.aliases = ev.target.value; } })),
-    h('label.field', null, h('span', null, t('İpucu')), h('textarea.input', { rows: 2, value: data.tip, placeholder: t('Kendine hatırlatma'), oninput: (ev) => { data.tip = ev.target.value; } })));
+    h('label.field', null, h('span', null, t('İpucu')), h('textarea.input', { rows: 2, value: data.tip, placeholder: t('Kendine hatırlatma'), oninput: (ev) => { data.tip = ev.target.value; } })),
+    h('label.field', null, h('span', null, t('Makine ayarı (her seferinde görünür)')), h('input.input', { value: data.setup, placeholder: t('ör. koltuk 4, göğüs pedi 2'), oninput: (ev) => { data.setup = ev.target.value; } })),
+    h('label.field', null, h('span', null, t('Dinlenme süresi (sn)')), h('input.input', { inputmode: 'numeric', value: data.rest ?? '', placeholder: String(state.settings.restDefault || 90), oninput: (ev) => { data.rest = parseNum(ev.target.value); } })));
   const sh = sheet({
     title: t(e ? 'Hareketi düzenle' : 'Yeni hareket'), full: true, body,
     footer: h('div.row.gap', null,
@@ -656,7 +856,7 @@ function exerciseForm(id, { groups = [], onSaved } = {}) {
         if (!data.groups.length) { toast(t('En az bir bölge seç')); return; }
         const saved = saveExercise({
           ...data, name: data.name.trim(), short: data.short.trim() || data.name.trim(),
-          aliases: data.aliases.split(',').map((s) => s.trim()).filter(Boolean), tip: data.tip.trim(),
+          aliases: data.aliases.split(',').map((s) => s.trim()).filter(Boolean), tip: data.tip.trim(), setup: data.setup.trim(), rest: data.rest || null,
         });
         sh.close();
         toast(t(e ? 'Hareket güncellendi' : 'Hareket eklendi'));
@@ -718,7 +918,7 @@ function sessionCard(s) {
     h('div.grow', null,
       h('div.session-top', null,
         h('b', null, groupLabel(sessionGroups(s)) || t(s.items.length ? 'Antrenman' : 'Spor günü')),
-        h('span.muted.small', null, [s.bodyWeight ? `${num(s.bodyWeight)} kg` : '', mood ? mood.e : ''].filter(Boolean).join(' '))),
+        h('span.muted.small', null, [s.duration ? `⏱ ${s.duration} ${dk()}` : '', s.bodyWeight ? `${num(s.bodyWeight)} kg` : '', mood ? mood.e : ''].filter(Boolean).join(' · '))),
       lines.length ? h('div.lines', null, lines) : null,
       s.note ? h('p.session-note', null, s.note) : null));
 }
@@ -732,6 +932,7 @@ function sessionDetail(id) {
   body.append(h('div.chips.static', null,
     sessionGroups(s).map((g) => h('span.chip.on', null, GROUP_NAME[g])),
     s.bodyWeight ? h('span.chip', null, `⚖ ${num(s.bodyWeight)} kg`) : null,
+    s.duration ? h('span.chip', null, `⏱ ${s.duration} ${dk()}`) : null,
     mood ? h('span.chip', null, `${mood.e} ${t(mood.t)}`) : null));
   if (prs.length) body.append(h('div.prs', null, h('h3', null, icon('trophy'), t('Rekorlar')), prs.map((p) => h('div.pr-row', null, h('b', null, ex(p.exId).name), h('span', null, p.prev ? `${p.prev} → ${p.label}` : p.label)))));
   for (const it of s.items) {
@@ -873,9 +1074,11 @@ function ProgressView() {
   const ref = lw && [...ws].reverse().find((w) => daysBetween(w.date, lw.date) >= 28);
   const firstYear = ws.find((w) => w.date.startsWith(year));
 
+  const heroNum = h('b.hero-num', null, '0');
+  countUp(heroNum, yearCount, { dur: 1100 });
   page.append(h('div.hero', null,
     h('span.muted', null, t('{year} yılında', { year })),
-    h('b.hero-num', null, String(yearCount)),
+    heroNum,
     h('span', null, t('antrenman', { n: yearCount })),
     h('span.muted.small', null, t('Son 12 haftada haftalık ortalama {n}', { n: num(last12 / 12, 1) }))));
 
@@ -885,6 +1088,36 @@ function ProgressView() {
     lw ? tile(t('Güncel kilo'), `${num(lw.kg)} kg`, ref ? t('{d} kg son 1 ayda', { d: `${lw.kg - ref.kg >= 0 ? '+' : ''}${num(lw.kg - ref.kg, 1)}` }) : null) : null,
     lw && firstYear && firstYear !== lw ? tile(t('Yıl başından beri'), `${lw.kg - firstYear.kg >= 0 ? '+' : ''}${num(lw.kg - firstYear.kg, 1)} kg`, `${num(firstYear.kg)} → ${num(lw.kg)}`) : null,
     gap.days > 7 ? tile(t('En uzun ara'), t('{n} gün', { n: gap.days }), `${fmtDate(gap.from)} → ${fmtDate(gap.to)}`) : null));
+
+  // Haftalık hedef
+  const wp = weekProgress();
+  const weeks = [];
+  for (let k = 11; k >= 0; k--) {
+    const w = addDays(wp.cur, -7 * k);
+    const n = wp.counts.get(w) || 0;
+    const wd = parseYmd(w);
+    weeks.push({ label: k === 11 || wd.getDate() <= 7 ? monthShort(wd.getMonth()) : '', value: n, tip: `<b>${t('{n} antrenman', { n })}</b><span>${fmtDate(w)} – ${fmtDate(addDays(w, 6))}</span>` });
+  }
+  const goalHost = h('div.chart-host');
+  page.append(h('div.card', null,
+    h('div.card-head', null, h('h2', null, t('Haftalık hedef')), h('span.muted.small', null, wp.streak ? `🔥 ${t('{n} haftalık seri', { n: wp.streak })}` : t('Haftada {n} antrenman', { n: wp.goal }))),
+    h('div.goal-row', null, goalRing(wp.thisWeek, wp.goal, 64),
+      h('div', null, h('b', null, t('Bu hafta {a}/{b}', { a: wp.thisWeek, b: wp.goal })),
+        h('p.muted.small', null, wp.thisWeek >= wp.goal ? t('Hedef tamam, harika!') : t('{n} antrenman kaldı', { n: wp.goal - wp.thisWeek })))),
+    goalHost));
+  requestAnimationFrame(() => columnChart(goalHost, { data: weeks, goal: wp.goal, height: 150 }));
+
+  // Kas haritası (son 7 gün)
+  const weekCounts = groupSets(sessionsSince(7));
+  const mapBars = h('div');
+  barList(mapBars, { data: GROUPS.filter((g) => g.id !== 'cardio').map((g) => {
+    const n = Math.round(weekCounts.get(g.id) || 0);
+    return { label: g.name, value: n, display: t('{n} set', { n }) };
+  }) });
+  page.append(h('div.card', null,
+    h('div.card-head', null, h('h2', null, t('Bu hafta çalışan kaslar')), h('span.muted.small', null, t('son 7 gün'))),
+    bodyMap(weekCounts), mapBars,
+    h('p.muted.small.mt', null, t('Bölge başına haftada 10–20 set kas gelişimi için iyi bir aralıktır.'))));
 
   // Kilo grafiği
   if (ws.length) {
@@ -900,6 +1133,8 @@ function ProgressView() {
     page.append(card);
     requestAnimationFrame(drawW);
   }
+
+  page.append(MeasureCard());
 
   // Takvim
   const from = all.length ? (all[all.length - 1].date < `${year}-01-01` ? addDays(td, -364) : `${year}-01-01`) : td;
@@ -967,22 +1202,6 @@ function ProgressView() {
     requestAnimationFrame(drawEx);
   }
 
-  // Bölge dağılımı (son 30 gün)
-  const counts = new Map();
-  for (const s of all) {
-    if (daysBetween(s.date, td) > 30) continue;
-    for (const it of s.items) {
-      if (it.skipped) continue;
-      const g = ex(it.exId).groups[0];
-      if (g) counts.set(g, (counts.get(g) || 0) + it.sets.length);
-    }
-  }
-  const barHost = h('div');
-  if (counts.size) {
-    barList(barHost, { data: [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([g, n]) => ({ label: GROUP_NAME[g], value: n, display: t('{n} set', { n }) })) });
-    page.append(h('div.card', null, h('div.card-head', null, h('h2', null, t('Bölge dağılımı')), h('span.muted.small', null, t('son 30 gün'))), barHost));
-  }
-
   // Rekorlar
   const prs = exercises().filter((e) => e.type === 'w' && exHistory(e.id).length).map((e) => ({ e, r: records(e.id) }))
     .filter((x) => x.r.maxW).sort((a, b) => usageCount(b.e.id) - usageCount(a.e.id)).slice(0, 12);
@@ -992,6 +1211,65 @@ function ProgressView() {
         h('span.grow', null, e.name), h('b', null, `${num(r.maxW)} kg`), h('span.muted.small', null, r.wDate ? fmtDate(r.wDate) : ''))))));
   }
   return page;
+}
+
+// ---------- Vücut ölçüleri ----------
+const MEASURE_NAMES = { waist: 'Bel', chest: 'Göğüs', arm: 'Kol', thigh: 'Uyluk', hip: 'Kalça' };
+let measureSel = 'waist';
+function MeasureCard() {
+  const list = state.measurements;
+  const card = h('div.card', null,
+    h('div.card-head', null, h('h2', null, t('Vücut ölçüleri')), h('button.btn.sm', { onclick: () => measureSheet() }, icon('plus'), t('Ölçü ekle'))));
+  if (!list.length) {
+    card.append(h('p.muted.small', null, t('Bel, göğüs, kol, uyluk ve kalça ölçülerini (cm) ekle; değişimi kilodan daha iyi gösterebilir.')));
+    return card;
+  }
+  const last = list[list.length - 1];
+  const tilesBox = h('div.tiles.measure-tiles');
+  for (const k of MEASURES) {
+    if (last[k] == null) continue;
+    const f = list.find((m) => m[k] != null);
+    const d = f && f !== last ? last[k] - f[k] : null;
+    tilesBox.append(tile(t(MEASURE_NAMES[k]), `${num(last[k], 1)} cm`, d != null ? `${d >= 0 ? '+' : ''}${num(d, 1)} cm` : null));
+  }
+  const opts = MEASURES.filter((k) => list.some((m) => m[k] != null)).map((k) => ({ id: k, name: t(MEASURE_NAMES[k]) }));
+  if (!opts.some((o) => o.id === measureSel)) measureSel = opts[0]?.id;
+  const host = h('div.chart-host');
+  const draw = () => lineChart(host, { data: list.filter((m) => m[measureSel] != null).map((m) => ({ date: m.date, y: m[measureSel] })), height: 160, yFmt: (v) => num(v, 1), unit: ' cm' });
+  card.append(tilesBox, segmented(opts, measureSel, (v) => { measureSel = v; draw(); }), host,
+    h('button.btn.sm.ghost.mt', { onclick: () => measureSheet() }, t('Kayıtları düzenle')));
+  requestAnimationFrame(draw);
+  return card;
+}
+
+function measureSheet() {
+  const last = state.measurements[state.measurements.length - 1] || {};
+  const data = { date: today() };
+  const dateIn = h('input.input', { type: 'date', value: data.date, max: today(), onchange: (e) => { data.date = e.target.value; } });
+  const inputs = MEASURES.map((k) => h('label.field', null, h('span', null, `${t(MEASURE_NAMES[k])} (cm)`),
+    h('input.input', { inputmode: 'decimal', placeholder: last[k] != null ? num(last[k], 1) : 'cm', oninput: (e) => { data[k] = parseNum(e.target.value); } })));
+  const history = h('div.list');
+  const paintHist = () => history.replaceChildren(...state.measurements.slice().reverse().map((m) => h('div.row-card', null,
+    h('div.grow', null, h('b', null, fmtDate(m.date, { year: true })), h('div.muted.small', null, MEASURES.filter((k) => m[k] != null).map((k) => `${t(MEASURE_NAMES[k])} ${num(m[k], 1)}`).join(' · '))),
+    h('button.icon-btn', { 'aria-label': t('Sil'), onclick: () => { deleteMeasurement(m.date); paintHist(); rerender(); } }, icon('trash')))));
+  paintHist();
+  const sh = sheet({
+    title: t('Vücut ölçüleri'), full: true,
+    body: h('div.form', null, h('label.field', null, h('span', null, t('Tarih')), dateIn), h('div.measure-grid', null, inputs),
+      state.measurements.length ? h('h4.section-title', null, t('Kayıtlar')) : null, history),
+    footer: h('button.btn.primary.block', { onclick: () => {
+      const vals = MEASURES.filter((k) => data[k] != null);
+      if (!vals.length) { toast(t('En az bir ölçü gir')); return; }
+      const old = state.measurements.find((m) => m.date === data.date) || {};
+      const entry = { ...old, date: data.date };
+      for (const k of vals) entry[k] = data[k];
+      addMeasurement(entry);
+      sh.close();
+      haptic(12);
+      toast(t('Ölçüler kaydedildi'));
+      rerender();
+    } }, t('Kaydet')),
+  });
 }
 
 // ---------- Hareket kütüphanesi ve planlar ----------
@@ -1063,6 +1341,24 @@ function SettingsView() {
       settingRow('download', t('Yedeği indir'), lb ? t('Son yedek: {d}', { d: relDays(lb) }) : t('Henüz yedek alınmadı. Verilerin sadece bu cihazda.'), exportBackup),
       settingRow('upload', t('Yedekten geri yükle'), t('Daha önce indirdiğin .json dosyasını seç.'), importBackup),
       sessions().length ? settingRow('sparkle', t('Geçmişten plan öner'), t('Sık tekrarladığın antrenmanları plan yap.'), () => planSuggestions()) : null)));
+
+  const goalVal = h('b.stepper-val', null, String(state.settings.weeklyGoal || 3));
+  const setGoal = (d) => {
+    const v = Math.min(7, Math.max(1, (state.settings.weeklyGoal || 3) + d));
+    state.settings.weeklyGoal = v;
+    goalVal.textContent = v;
+    pop(goalVal);
+    haptic(8);
+    commit();
+  };
+  page.append(section(t('Antrenman'), h('div.card', null,
+    h('div.row.gap.between', null,
+      h('div', null, h('b', null, t('Haftalık hedef')), h('p.muted.small', null, t('Haftada kaç gün spora gitmek istiyorsun?'))),
+      h('div.stepper', null, h('button.icon-btn', { 'aria-label': '-1', onclick: () => setGoal(-1) }, '−'), goalVal, h('button.icon-btn', { 'aria-label': '+1', onclick: () => setGoal(1) }, '+'))),
+    h('div.field.mt', null, h('span', null, t('Varsayılan dinlenme')),
+      segmented([60, 90, 120, 180].map((v) => ({ id: v, name: v < 120 ? `${v} ${sn()}` : `${v / 60} ${dk()}` })), state.settings.restDefault || 90, (v) => { state.settings.restDefault = v; commit(); })),
+    toggleRow(t('Antrenmanda ekranı açık tut'), t('Telefon kilitlenmez, sayaç görünür kalır.'), state.settings.keepAwake !== false, (v) => { state.settings.keepAwake = v; commit(); }),
+    toggleRow(t('Titreşim'), t('Set tamamlanınca ve sayaç bitince titreşir.'), state.settings.haptics !== false, (v) => { state.settings.haptics = v; commit(); haptic(15); }))));
 
   const goal = h('input.input.w-kg', { inputmode: 'decimal', value: state.settings.goalWeight ?? '', placeholder: 'kg', onchange: (e) => { state.settings.goalWeight = parseNum(e.target.value); commit(); toast(t('Hedef kaydedildi')); } });
   page.append(section(t('Tercihler'), h('div.card', null,

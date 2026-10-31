@@ -1,6 +1,6 @@
 // Veriler sadece bu cihazda (localStorage) tutulur. Demo modu ayrı bir anahtar kullanır.
 import { BUILTIN, GROUP_NAME } from './exercises.js';
-import { num, daysBetween } from './format.js';
+import { num, daysBetween, weekStart, today, addDays } from './format.js';
 import { getLang, t } from './i18n.js';
 
 export const DEMO = new URLSearchParams(location.search).has('demo');
@@ -13,9 +13,10 @@ function blank() {
     templates: [],  // { id, name, groups, items: [{ exId, sets }] }
     weighIns: [],   // { date, kg } — antrenman olmayan günlerde girilen kilo
     customEx: [],   // kullanıcının eklediği hareketler
+    measurements: [], // { date, waist, chest, arm, thigh, hip } (cm)
     exEdits: {},    // hazır hareketlerde yapılan değişiklikler { id: { name, short, ... , hidden } }
     draft: null,    // devam eden antrenman
-    settings: { goalWeight: null, theme: 'auto', lang: 'auto', lastBackup: null },
+    settings: { goalWeight: null, theme: 'auto', lang: 'auto', lastBackup: null, weeklyGoal: 3, restDefault: 90, keepAwake: true, haptics: true },
   };
 }
 
@@ -313,7 +314,7 @@ export function templateFromSession(s, name) {
     id: uid(),
     name: name || groupLabel(sessionGroups(s)).replace(/ · /g, ' + ') || t('Antrenman'),
     groups: sessionGroups(s),
-    items: s.items.filter((it) => !it.skipped).map((it) => ({ exId: it.exId, sets: clone(it.sets).map(({ w, r, t, d }) => ({ w, r, t, d })) })),
+    items: s.items.filter((it) => !it.skipped).map((it) => ({ exId: it.exId, sets: clone(it.sets).map(({ w, r, t, d }) => ({ w, r, t, d })), ...(it.ss ? { ss: it.ss } : {}) })),
   };
 }
 
@@ -337,12 +338,79 @@ export function itemsFromTemplate(t) {
   return t.items.map((it) => {
     const last = lastPerf(it.exId);
     const sets = last ? clone(last.item.sets).map(({ w, r, x, t: tt, d }) => ({ w, r, x, t: tt, d })) : clone(it.sets);
-    return { exId: it.exId, sets: sets.length ? sets : [{}], note: '', skipped: false };
+    return { exId: it.exId, sets: sets.length ? sets : [{}], note: '', skipped: false, ...(it.ss ? { ss: it.ss } : {}) };
   });
 }
 
 export function itemsFromSession(s) {
-  return s.items.map((it) => ({ exId: it.exId, sets: clone(it.sets).map(({ w, r, x, t, d }) => ({ w, r, x, t, d })), note: '', skipped: false }));
+  return s.items.map((it) => ({ exId: it.exId, sets: clone(it.sets).map(({ w, r, x, t, d }) => ({ w, r, x, t, d })), note: '', skipped: false, ...(it.ss ? { ss: it.ss } : {}) }));
 }
 
 export const groupName = (g) => GROUP_NAME[g] || g;
+
+// ---------- Antrenman sırasında ----------
+export const restFor = (exId) => Number(ex(exId).rest) || state.settings.restDefault || 90;
+
+// Geçen sefer bütün setler aynı tekrarla bittiyse (ya da "bir dahakine artır" işaretlendiyse) bir üst ağırlığı önerir.
+// Üst ağırlık, bu harekette daha önce kullandığın ağırlıklardan seçilir (makine kademeleri için); yoksa olağan artış eklenir.
+export function suggestIncrease(exId, opts = {}) {
+  if (ex(exId).type !== 'w') return null;
+  const last = lastPerf(exId, opts);
+  if (!last) return null;
+  const sets = last.item.sets.filter((s) => s.w != null && s.r != null);
+  if (!sets.length) return null;
+  const top = Math.max(...sets.map((s) => s.w));
+  const clean = sets.length >= 2 && sets.every((s) => !s.x && s.r >= sets[0].r);
+  if (!last.item.bump && !clean) return null;
+  const used = [...new Set(exHistory(exId).flatMap((h) => h.item.sets.map((s) => s.w)).filter((w) => w != null))].sort((a, b) => a - b);
+  const diffs = [];
+  for (let i = 1; i < used.length; i++) diffs.push(used[i] - used[i - 1]);
+  diffs.sort((a, b) => a - b);
+  const step = Math.min(5, Math.max(1, diffs.length ? diffs[Math.floor(diffs.length / 2)] : 2.5));
+  let to = used.find((w) => w > top + 0.01);
+  if (to == null || to - top > step * 1.6) to = Math.round((top + step) * 4) / 4;
+  return { from: top, to, flagged: !!last.item.bump };
+}
+
+// ---------- Haftalık hedef ----------
+export function weekProgress() {
+  const goal = state.settings.weeklyGoal || 3;
+  const counts = new Map();
+  for (const s of state.sessions) {
+    const w = weekStart(s.date);
+    counts.set(w, (counts.get(w) || 0) + 1);
+  }
+  const cur = weekStart(today());
+  const thisWeek = counts.get(cur) || 0;
+  let streak = 0;
+  let w = thisWeek >= goal ? cur : addDays(cur, -7);
+  while ((counts.get(w) || 0) >= goal) { streak++; w = addDays(w, -7); }
+  return { goal, thisWeek, streak, counts, cur };
+}
+
+// Bölge başına set sayısı: ana bölge tam, yardımcı bölgeler yarım sayılır.
+export function groupSets(list) {
+  const m = new Map();
+  for (const s of list) {
+    for (const it of s.items) {
+      if (it.skipped) continue;
+      const n = it.sets.filter(hasValue).length;
+      ex(it.exId).groups.forEach((g, i) => m.set(g, (m.get(g) || 0) + (i === 0 ? n : n / 2)));
+    }
+  }
+  return m;
+}
+export const sessionsSince = (days) => sessions().filter((s) => daysBetween(s.date, today()) < days);
+
+// ---------- Vücut ölçüleri ----------
+export const MEASURES = ['waist', 'chest', 'arm', 'thigh', 'hip'];
+export function addMeasurement(m) {
+  state.measurements = state.measurements.filter((x) => x.date !== m.date);
+  state.measurements.push(m);
+  state.measurements.sort((a, b) => a.date.localeCompare(b.date));
+  commit();
+}
+export function deleteMeasurement(date) {
+  state.measurements = state.measurements.filter((x) => x.date !== date);
+  commit();
+}

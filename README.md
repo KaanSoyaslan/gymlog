@@ -18,12 +18,12 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/home.jpg" alt="Workout tab: suggested next plan, saved plans and recent workouts to copy" width="200">
-  <img src="docs/screenshots/workout.jpg" alt="Logging a workout: weight, reps and assisted reps per set, last time's numbers and a new record highlighted" width="200">
+  <img src="docs/screenshots/home.jpg" alt="Workout tab: this week's goal with training days, the suggested next plan and saved plans" width="200">
+  <img src="docs/screenshots/workout.jpg" alt="Logging a workout: ticked sets, last time's numbers, the workout clock and the rest timer counting down" width="200">
   <img src="docs/screenshots/history.jpg" alt="History: workouts grouped by month in the same short format as the old notes" width="200">
 </p>
 <p align="center">
-  <img src="docs/screenshots/progress.jpg" alt="Progress: body weight chart, training calendar and workouts per month" width="200">
+  <img src="docs/screenshots/progress.jpg" alt="Progress: weekly goal with a 12-week chart and a muscle map of the last 7 days" width="200">
   <img src="docs/screenshots/library.jpg" alt="Exercise library with an animation for every exercise" width="200">
   <img src="docs/screenshots/detail.jpg" alt="Exercise detail: animation, tip, best set and estimated one-rep max" width="200">
 </p>
@@ -32,9 +32,9 @@
 
 GymLog started as a plain text file on a phone: a date with the body weight in brackets, then one line per exercise such as `lpd 54x12 x3`. It worked, but there were no charts, no way to see last week's numbers at a glance, and every workout was typed from scratch.
 
-GymLog keeps that speed and adds the rest. Start a workout by copying a previous one or a saved plan, change only the weights that went up, and save. Every exercise has a small animation, so abbreviations like `LPD` or `D Rise` turn into something you can recognise. Your old notes can be pasted in once and are converted automatically.
+GymLog keeps that speed and adds the rest. Start a workout by copying a previous one or a saved plan, tick off your sets while the rest timer runs, take the suggested weight when you are ready to go up, and save. Every exercise has a small animation, so abbreviations like `LPD` or `D Rise` turn into something you can recognise. Your old notes can be pasted in once and are converted automatically.
 
-It is a progressive web app (PWA): it runs in the phone's browser, can be installed to the home screen and works offline at the gym. There is no server and no account; everything is stored on your device. The interface is available in English and Turkish.
+It is a progressive web app (PWA): it runs in the phone's browser, can be installed to the home screen and works offline at the gym. There is no server and no account; everything is stored on your device. The interface is available in English and Turkish, and it is built to feel good to use: screens slide in, buttons ripple, and the phone vibrates when you complete a set.
 
 ## Features
 
@@ -45,6 +45,19 @@ It is a progressive web app (PWA): it runs in the phone's browser, can be instal
 - Change the first set's weight and the following sets with the same weight update too.
 - Swap an exercise for another one from the same group, reorder, skip ("pas geç") or add a note to a single exercise (for example "machine was broken").
 - A general note and a quick "how was it?" rating for the whole workout. The draft is saved continuously, so closing the browser loses nothing.
+
+**In the gym**
+- Tick off each set as you go. Ticking an empty set fills in last time's numbers.
+- A rest timer starts automatically, with vibration and a sound when it ends. The default (60 s to 3 min) can be set globally and per exercise, and −15/+15 buttons adjust it on the fly.
+- The screen stays on during a workout, and a clock shows how long you have been training. The duration is saved with the workout.
+- Supersets: link an exercise with the next one. Ticking a set jumps to the next exercise in the superset; the rest timer starts after the last one.
+- Machine setup notes (for example "seat 4, chest pad 2") are shown on the exercise every time.
+
+**Progression**
+- Weight suggestions: if you finished every set last time, GymLog offers the next weight with one tap. It picks the next weight you have actually used on that exercise (so it matches the machine's weight stack), otherwise it adds your usual step.
+- Mark an exercise "increase next time" and the suggestion is waiting for you in the next workout.
+- After three weeks or more without training, it offers to start at 75% of your weights.
+- A new record is celebrated with confetti the moment you tick the set, and the save summary shows your records, volume, duration and a map of the muscles you worked.
 
 **Copy and plans**
 - Copy any previous workout with one tap and only adjust what changed.
@@ -59,7 +72,9 @@ It is a progressive web app (PWA): it runs in the phone's browser, can be instal
 - Body-weight chart with 3 month, 6 month, 1 year and all-time views and an optional goal line.
 - Training calendar (heatmap), workouts per month, longest break, weekly average.
 - Per-exercise progress: heaviest set, estimated one-rep max (Epley) or volume, plus personal records.
-- Sets per muscle group over the last 30 days.
+- Weekly goal (for example 3 workouts a week) with a streak counter, this week's training days and a 12-week chart.
+- Muscle map: front and back views coloured by the sets each muscle group got in the last 7 days, with a guide of 10–20 sets a week.
+- Body measurements (waist, chest, arm, thigh, hips) with charts and the change since your first entry.
 
 **Importing old notes**
 - Paste the text file from your phone. GymLog reads the date lines (`02 01 26 (80.9)`), the exercise lines and common formats such as `50x12 x3`, `54 54 54 12 12 10+2`, `59 63 63 10x3`, `4x10 55 60 60 60` and `7(+3)`.
@@ -98,9 +113,12 @@ Then open <http://localhost:8080>. Add `?demo` (<http://localhost:8080/?demo>) t
 | `js/app.js` | Screens and flow: workout editor, history, progress, library, settings, import |
 | `js/anim.js` | Exercise animations: a small stick-figure rig with forward and inverse kinematics, and 54 movement patterns |
 | `js/exercises.js` | Built-in exercises, muscle groups and abbreviations |
-| `js/store.js` | On-device storage, records, last performance, plan suggestions |
+| `js/store.js` | On-device storage, records, last performance, weight suggestions, weekly goal, plan suggestions |
 | `js/importer.js` | Parser that turns the old text notes into workouts |
-| `js/charts.js` | Dependency-free SVG charts: line, columns, bars and calendar heatmap |
+| `js/charts.js` | Dependency-free SVG charts: line, columns, bars and calendar heatmap, with draw-in animations |
+| `js/timer.js` | Rest timer and keeping the screen on during a workout |
+| `js/bodymap.js` | Front and back muscle map |
+| `js/juice.js` | Haptics, ripples, confetti, count-up numbers and sounds |
 | `js/ui.js` | Small UI helpers: elements, bottom sheets, dialogs, toasts, icons |
 | `js/i18n.js` | English and Turkish interface texts, with automatic language detection |
 | `js/format.js` | Date and number formatting in both languages |
@@ -112,6 +130,7 @@ It is built with plain HTML, CSS and JavaScript, with no framework, no dependenc
 ## Known limitations
 
 - Data lives in one browser on one device. Use the backup file to move it to another phone; there is no automatic sync.
+- The rest timer runs while the screen is on. A web app cannot show a timer on the lock screen.
 - The import is tuned for the "exercise weight x reps x sets" style of notes. Unusual lines are kept as notes and marked for review instead of being guessed.
 
 ---
@@ -126,18 +145,18 @@ It is built with plain HTML, CSS and JavaScript, with no framework, no dependenc
 **Uygulamayı aç:** <https://kaansoyaslan.github.io/gymlog/> · **Demo:** <https://kaansoyaslan.github.io/gymlog/?demo>
 
 <p align="center">
-  <img src="docs/screenshots/tr-home.jpg" alt="Antrenman sekmesi: sıradaki plan, kayıtlı planlar ve kopyalanacak son antrenmanlar" width="200">
-  <img src="docs/screenshots/tr-workout.jpg" alt="Antrenman kaydı: set set ağırlık, tekrar ve yardımlı tekrar; geçen seferki rakamlar ve yeni rekor vurgusu" width="200">
-  <img src="docs/screenshots/tr-progress.jpg" alt="Gelişim: kilo grafiği, spor takvimi ve aylık antrenman sayısı" width="200">
+  <img src="docs/screenshots/tr-home.jpg" alt="Antrenman sekmesi: haftalık hedef ve antrenman günleri, sıradaki plan ve kayıtlı planlar" width="200">
+  <img src="docs/screenshots/tr-workout.jpg" alt="Antrenman kaydı: tamamlanan setler, geçen seferki rakamlar, antrenman süresi ve geri sayan dinlenme sayacı" width="200">
+  <img src="docs/screenshots/tr-progress.jpg" alt="Gelişim: 12 haftalık grafikle haftalık hedef ve son 7 günün kas haritası" width="200">
 </p>
 
 ### Genel bakış
 
 GymLog, telefondaki düz bir metin dosyasından doğdu: parantez içinde kiloyla bir tarih, ardından her hareket için `lpd 54x12 x3` gibi bir satır. İşe yarıyordu ama grafik yoktu, geçen haftanın rakamlarını görmek zordu ve her antrenman sıfırdan yazılıyordu.
 
-GymLog bu hızı korur, eksikleri tamamlar. Antrenmana önceki bir antrenmanı ya da kayıtlı bir planı kopyalayarak başlarsın, sadece artan ağırlıkları değiştirir ve kaydedersin. Her hareketin küçük bir animasyonu var; `LPD` ya da `D Rise` gibi kısaltmalar gözle tanınır hale gelir. Eski notlarını bir kez yapıştırman yeterli, otomatik olarak antrenmanlara çevrilir.
+GymLog bu hızı korur, eksikleri tamamlar. Antrenmana önceki bir antrenmanı ya da kayıtlı bir planı kopyalayarak başlarsın, dinlenme sayacı çalışırken setleri işaretlersin, artırmaya hazırsan önerilen ağırlığı alırsın ve kaydedersin. Her hareketin küçük bir animasyonu var; `LPD` ya da `D Rise` gibi kısaltmalar gözle tanınır hale gelir. Eski notlarını bir kez yapıştırman yeterli, otomatik olarak antrenmanlara çevrilir.
 
-Telefonun tarayıcısında çalışan bir web uygulamasıdır (PWA): ana ekrana eklenebilir ve salonda internet olmasa da açılır. Sunucu ya da hesap yok; her şey cihazında saklanır. Arayüz Türkçe ve İngilizce.
+Telefonun tarayıcısında çalışan bir web uygulamasıdır (PWA): ana ekrana eklenebilir ve salonda internet olmasa da açılır. Sunucu ya da hesap yok; her şey cihazında saklanır. Arayüz Türkçe ve İngilizce; kullanırken keyif versin diye ekranlar kayarak gelir, düğmeler dalgalanır, seti tamamlayınca telefon titrer.
 
 ### Özellikler
 
@@ -148,6 +167,19 @@ Telefonun tarayıcısında çalışan bir web uygulamasıdır (PWA): ana ekrana 
 - İlk setin ağırlığını değiştirince aynı ağırlıktaki sonraki setler de güncellenir.
 - Bir hareketi aynı bölgeden başka bir hareketle değiştir, sırasını değiştir, pas geç ya da sadece o harekete not düş (ör. "alet bozuktu").
 - Antrenmanın tamamı için genel not ve "nasıldı?" değerlendirmesi. Taslak sürekli kaydedilir; tarayıcı kapansa da bir şey kaybolmaz.
+
+**Salonda**
+- Setleri yaptıkça işaretle. Boş bir seti işaretlersen geçen seferki rakamlar yazılır.
+- Dinlenme sayacı kendiliğinden başlar; bitince titreşir ve ses çıkarır. Varsayılan süre (60 sn – 3 dk) genel olarak ve hareket başına ayarlanabilir, −15/+15 ile anında değiştirilir.
+- Antrenman boyunca ekran açık kalır, bir saat ne kadar süredir çalıştığını gösterir. Süre antrenmanla birlikte kaydedilir.
+- Süperset: bir hareketi sonrakine bağla. Bir seti işaretleyince süpersetteki sıradaki harekete geçilir; dinlenme sayacı sondakinden sonra başlar.
+- Makine ayarı notları (ör. "koltuk 4, göğüs pedi 2") her seferinde hareketin üstünde görünür.
+
+**İlerleme**
+- Ağırlık önerisi: geçen sefer bütün setleri tamamladıysan GymLog tek dokunuşla bir üst ağırlığı önerir. Bu harekette daha önce kullandığın bir sonraki ağırlığı seçer (makinenin ağırlık kademelerine uyar), yoksa olağan artışını ekler.
+- Bir hareketi "bir dahakine artır" diye işaretle; öneri bir sonraki antrenmanda seni bekler.
+- Üç hafta ya da daha uzun aradan sonra ağırlıkların %75'iyle başlamayı önerir.
+- Yeni rekor, seti işaretlediğin anda konfetiyle kutlanır; kayıt özetinde rekorların, hacim, süre ve çalışan kasların haritası görünür.
 
 **Kopyalama ve planlar**
 - Önceki herhangi bir antrenmanı tek dokunuşla kopyala, sadece değişenleri düzelt.
@@ -162,7 +194,9 @@ Telefonun tarayıcısında çalışan bir web uygulamasıdır (PWA): ana ekrana 
 - 3 ay, 6 ay, 1 yıl ve tüm zamanlar görünümlü kilo grafiği, istersen hedef kilo çizgisi.
 - Spor takvimi (ısı haritası), aylık antrenman sayısı, en uzun ara, haftalık ortalama.
 - Hareket bazında gelişim: en ağır set, tahmini 1RM (Epley) ya da hacim; kişisel rekorlar.
-- Son 30 günde bölgelere göre set sayısı.
+- Haftalık hedef (ör. haftada 3 antrenman), seri sayacı, bu haftanın antrenman günleri ve 12 haftalık grafik.
+- Kas haritası: önden ve arkadan çizim, son 7 günde her bölgenin aldığı set sayısına göre renklenir; haftada 10–20 set rehberiyle.
+- Vücut ölçüleri (bel, göğüs, kol, uyluk, kalça): grafikler ve ilk ölçümden bu yana değişim.
 
 **Eski notları içe aktarma**
 - Telefondaki metin dosyasını yapıştır. GymLog tarih satırlarını (`02 01 26 (80.9)`), hareket satırlarını ve `50x12 x3`, `54 54 54 12 12 10+2`, `59 63 63 10x3`, `4x10 55 60 60 60`, `7(+3)` gibi yazımları okur.
@@ -197,4 +231,5 @@ Ardından <http://localhost:8080> adresini aç. Örnek verilerle denemek için s
 ### Bilinen sınırlamalar
 
 - Veriler tek cihazda, tek tarayıcıda durur. Başka telefona taşımak için yedek dosyasını kullan; otomatik eşitleme yok.
+- Dinlenme sayacı ekran açıkken çalışır. Bir web uygulaması kilit ekranında sayaç gösteremez.
 - İçe aktarma "hareket ağırlık x tekrar x set" tarzı notlara göre ayarlandı. Alışılmadık satırlar tahmin edilmez; not olarak saklanır ve kontrol için işaretlenir.

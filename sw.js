@@ -1,18 +1,21 @@
 // Uygulama dosyalarını önbelleğe alır; önce ağdan dener ki güncellemeler hemen gelsin, salonda internet yoksa önbellekten açılır.
-const CACHE = 'gymlog-v2';
+const CACHE = 'gymlog-v3';
 const ASSETS = [
   './',
   'index.html',
   'css/style.css',
   'js/app.js',
   'js/anim.js',
+  'js/bodymap.js',
   'js/charts.js',
   'js/demo.js',
   'js/exercises.js',
   'js/format.js',
   'js/i18n.js',
   'js/importer.js',
+  'js/juice.js',
   'js/store.js',
+  'js/timer.js',
   'js/ui.js',
   'manifest.webmanifest',
   'icons/icon.svg',
