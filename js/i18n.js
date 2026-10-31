@@ -395,6 +395,22 @@ const EN = {
   'Titreşim': 'Vibration',
   'Set tamamlanınca ve sayaç bitince titreşir.': 'Vibrates when you complete a set and when rest is over.',
 
+  // Tekrar düğmeleri, yükleme, yedek
+  '{n}. set tekrar −1': 'Set {n} reps −1',
+  '{n}. set tekrar +1': 'Set {n} reps +1',
+  'Uygulama': 'App',
+  'Uygulamayı yükle': 'Install the app',
+  'Ana ekrana ekle; tam ekran ve internetsiz açılır.': 'Add it to your home screen; it opens full screen and works offline.',
+  "GymLog'u ana ekrana ekle": 'Add GymLog to your home screen',
+  'Yükle': 'Install',
+  'GymLog ana ekrana eklendi': 'GymLog was added to your home screen',
+  "Safari'de alttaki Paylaş düğmesine dokun, sonra \"Ana Ekrana Ekle\"yi seç.": 'In Safari, tap the Share button, then choose "Add to Home Screen".',
+  "Chrome'da sağ üstteki ⋮ menüsünü aç, \"Uygulamayı yükle\" ya da \"Ana ekrana ekle\"yi seç.": 'In Chrome, open the ⋮ menu at the top right and choose "Install app" or "Add to Home screen".',
+  'Yüklenince GymLog kendi simgesiyle, tam ekran ve internetsiz açılır.': 'Once installed, GymLog opens from its own icon, full screen and offline.',
+  'Yedek İndirilenler klasörüne kaydedildi. Açmana gerek yok; geri yüklerken bu dosyayı seç.': 'Backup saved to Downloads. No need to open it; pick this file when you restore.',
+  'Yedeği paylaş': 'Share backup',
+  'Drive, WhatsApp ya da e-postaya gönder.': 'Send it to Drive, WhatsApp or email.',
+
   // Örnek veriler
   'Omuz + Triceps': 'Shoulders + Triceps',
   'Sırt + Biceps': 'Back + Biceps',

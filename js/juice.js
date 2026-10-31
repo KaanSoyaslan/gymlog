@@ -35,7 +35,7 @@ export function beep() {
 }
 
 // Dokunulan yerden yayılan dalga
-const RIPPLE = '.btn, .chip, .seg-btn, .nav-item, .set-check, .pick-row, .menu-item, .setting-row, .ex-tile, .session-card, .mood, .add-ex, .anim-choice, .suggest-chip, .icon-btn';
+const RIPPLE = '.btn, .rep-btn, .chip, .seg-btn, .nav-item, .set-check, .pick-row, .menu-item, .setting-row, .ex-tile, .session-card, .mood, .add-ex, .anim-choice, .suggest-chip, .icon-btn';
 document.addEventListener('pointerdown', (e) => {
   const el = e.target.closest(RIPPLE);
   if (!el || reduced()) return;

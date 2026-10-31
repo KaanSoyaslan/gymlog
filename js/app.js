@@ -164,6 +164,12 @@ function StartView() {
     return page;
   }
 
+  if (installEvt && !standalone() && !state.settings.installHidden) {
+    page.append(h('div.banner.install', null, icon('download'), h('span.grow', null, t("GymLog'u ana ekrana ekle")),
+      h('button.btn.sm.primary', { onclick: installApp }, t('Yükle')),
+      h('button.icon-btn.sm', { 'aria-label': t('Kapat'), onclick: () => { state.settings.installHidden = true; commit(); rerender(); } }, icon('x'))));
+  }
+
   const last = all[0];
   if (last) {
     const wp = weekProgress();
@@ -654,7 +660,22 @@ function ItemCard(doc, i, ctx) {
         all[all.indexOf(input) + 1]?.focus();
       });
       inputs[f.k] = input;
-      row.append(input);
+      if (f.k === 'r') {
+        // Tekrar için −1 / +1: boşsa geçen seferki tekrardan başlar
+        const step = (d) => {
+          const base = set.r ?? parseNum(input.placeholder) ?? 0;
+          set.r = Math.max(0, base + d);
+          input.value = String(set.r);
+          haptic(6);
+          pop(input);
+          ctx.changed();
+          markPR();
+        };
+        row.append(h('div.rep-step', null,
+          h('button.rep-btn', { type: 'button', 'aria-label': t('{n}. set tekrar −1', { n: j + 1 }), onclick: () => step(-1) }, '−'),
+          input,
+          h('button.rep-btn', { type: 'button', 'aria-label': t('{n}. set tekrar +1', { n: j + 1 }), onclick: () => step(1) }, '+')));
+      } else row.append(input);
     }
     if (!isPlan) {
       const check = h('button.set-check' + (set.done ? '.done' : ''), { type: 'button', 'aria-label': t('{n}. seti tamamla', { n: j + 1 }), 'aria-pressed': String(!!set.done) }, icon('check'));
@@ -1335,10 +1356,15 @@ function SettingsView() {
   page.append(pageHead(t('Ayarlar')));
   if (DEMO) page.append(demoBanner());
   const lb = state.settings.lastBackup;
+  if (!standalone()) {
+    page.append(section(t('Uygulama'), h('div.list', null,
+      settingRow('download', t('Uygulamayı yükle'), t('Ana ekrana ekle; tam ekran ve internetsiz açılır.'), installApp))));
+  }
   page.append(section(t('Veriler'),
     h('div.list', null,
       settingRow('file', t('Eski notlarımı içe aktar'), t('Telefondaki metin notlarını yapıştır, antrenmanlara çevireyim.'), () => importSheet()),
       settingRow('download', t('Yedeği indir'), lb ? t('Son yedek: {d}', { d: relDays(lb) }) : t('Henüz yedek alınmadı. Verilerin sadece bu cihazda.'), exportBackup),
+      textShareOK() ? settingRow('copy', t('Yedeği paylaş'), t('Drive, WhatsApp ya da e-postaya gönder.'), shareBackup) : null,
       settingRow('upload', t('Yedekten geri yükle'), t('Daha önce indirdiğin .json dosyasını seç.'), importBackup),
       sessions().length ? settingRow('sparkle', t('Geçmişten plan öner'), t('Sık tekrarladığın antrenmanları plan yap.'), () => planSuggestions()) : null)));
 
@@ -1392,25 +1418,66 @@ function settingRow(ic, title, desc, onclick, danger = false) {
   return h('button.setting-row' + (danger ? '.danger' : ''), { onclick }, icon(ic), h('span.grow', null, h('b', null, title), h('span.muted.small', null, desc)), icon('back', 'chev'));
 }
 
+const backupData = () => JSON.stringify({ app: 'gymlog', version: 1, exportedAt: new Date().toISOString(), data: state }, null, 1);
+const backupName = (ext) => `gymlog-${t('yedek')}-${today()}.${ext}`;
+const backupDone = () => { state.settings.lastBackup = today(); commit(); rerender(); };
+
+// Dosya doğrudan İndirilenler'e iner (telefonun JSON açamaması sorun değil; geri yüklerken seçilir)
 function exportBackup() {
-  const data = JSON.stringify({ app: 'gymlog', version: 1, exportedAt: new Date().toISOString(), data: { ...state, draft: state.draft } }, null, 1);
-  const name = `gymlog-${t('yedek')}-${today()}.json`;
-  const file = new File([data], name, { type: 'application/json' });
-  const finish = () => { state.settings.lastBackup = today(); commit(); rerender(); };
-  if (navigator.canShare?.({ files: [file] }) && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
-    navigator.share({ files: [file], title: t('GymLog yedeği') }).then(finish).catch(() => {});
-    return;
-  }
-  const a = h('a', { href: URL.createObjectURL(file), download: name });
+  const url = URL.createObjectURL(new Blob([backupData()], { type: 'application/json' }));
+  const a = h('a', { href: url, download: backupName('json') });
   document.body.append(a);
   a.click();
   a.remove();
-  finish();
-  toast(t('Yedek indirildi'));
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  backupDone();
+  haptic(10);
+  toast(t('Yedek İndirilenler klasörüne kaydedildi. Açmana gerek yok; geri yüklerken bu dosyayı seç.'), 5000);
+}
+
+// Telefonlar JSON paylaşımına izin vermediği için düz metin dosyası olarak paylaşılır
+const textShareOK = () => {
+  try { return !!navigator.canShare?.({ files: [new File(['x'], 'x.txt', { type: 'text/plain' })] }); } catch { return false; }
+};
+function shareBackup() {
+  const file = new File([backupData()], backupName('txt'), { type: 'text/plain' });
+  navigator.share({ files: [file], title: t('GymLog yedeği') }).then(backupDone).catch(() => {});
+}
+
+// ---------- Ana ekrana yükleme ----------
+let installEvt = null;
+const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installEvt = e;
+  const { tab } = parseRoute();
+  if (tab === 'settings' || (tab === 'workout' && !state.draft)) rerender();
+});
+window.addEventListener('appinstalled', () => {
+  installEvt = null;
+  toast(t('GymLog ana ekrana eklendi'));
+  rerender();
+});
+async function installApp() {
+  if (installEvt) {
+    const evt = installEvt;
+    installEvt = null;
+    evt.prompt();
+    await evt.userChoice.catch(() => null);
+    rerender();
+    return;
+  }
+  const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  sheet({
+    title: t('Uygulamayı yükle'),
+    body: h('div.form', null,
+      h('p', null, t(ios ? 'Safari\'de alttaki Paylaş düğmesine dokun, sonra "Ana Ekrana Ekle"yi seç.' : 'Chrome\'da sağ üstteki ⋮ menüsünü aç, "Uygulamayı yükle" ya da "Ana ekrana ekle"yi seç.')),
+      h('p.muted.small', null, t('Yüklenince GymLog kendi simgesiyle, tam ekran ve internetsiz açılır.'))),
+  });
 }
 
 function importBackup() {
-  const input = h('input', { type: 'file', accept: '.json,application/json' });
+  const input = h('input', { type: 'file', accept: '.json,.txt,application/json,text/plain' });
   input.addEventListener('change', async () => {
     const f = input.files?.[0];
     if (!f) return;

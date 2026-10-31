@@ -168,7 +168,7 @@ export function menu(title, items) {
 }
 
 let toastTimer = 0;
-export function toast(msg) {
+export function toast(msg, ms = 2600) {
   let el = document.querySelector('.toast');
   if (!el) {
     el = h('div.toast', { role: 'status' });
@@ -177,7 +177,7 @@ export function toast(msg) {
   el.textContent = msg;
   el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+  toastTimer = setTimeout(() => el.classList.remove('show'), ms);
 }
 
 export function chips(options, selected, onChange, { multi = true, className = '' } = {}) {

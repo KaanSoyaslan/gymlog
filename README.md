@@ -40,7 +40,7 @@ It is a progressive web app (PWA): it runs in the phone's browser, can be instal
 
 **Logging**
 - Pick the muscle groups for the day (chest, back, shoulders, biceps, triceps, legs, core, cardio) and choose exercises from those groups, or search by name or abbreviation.
-- Per set: weight, reps and assisted/partial reps (`7+3`). Bodyweight, timed and cardio exercises have their own fields.
+- Per set: weight, reps (type them or use the −1/+1 buttons) and assisted/partial reps (`7+3`). Bodyweight, timed and cardio exercises have their own fields.
 - Last time's numbers appear on every exercise and as placeholders in the inputs. A new record is highlighted while you type.
 - Change the first set's weight and the following sets with the same weight update too.
 - Swap an exercise for another one from the same group, reorder, skip ("pas geç") or add a note to a single exercise (for example "machine was broken").
@@ -83,7 +83,7 @@ It is a progressive web app (PWA): it runs in the phone's browser, can be instal
 
 ## Getting started
 
-1. Open <https://kaansoyaslan.github.io/gymlog/> in **Chrome** on your phone, then use ⋮ → **Add to Home screen** (or **Install app**).
+1. Open <https://kaansoyaslan.github.io/gymlog/> in **Chrome** on your phone, then use ⋮ → **Install app** (or **Add to Home screen**), or the **Install the app** button in Settings.
 2. To bring in your old notes: **Settings → Import my old notes**, paste the text, check the preview and import.
 3. On the **Workout** tab, start from a plan, copy a previous workout or start an empty one.
 4. Take a backup now and then (**Settings → Download backup**). You can restore it on another phone.
@@ -162,7 +162,7 @@ Telefonun tarayıcısında çalışan bir web uygulamasıdır (PWA): ana ekrana 
 
 **Kayıt**
 - Günün bölgelerini seç (göğüs, sırt, omuz, biceps, triceps, bacak, karın, kardiyo), hareketleri bu bölgelerden seç ya da adıyla veya kısaltmasıyla ara.
-- Her set için ağırlık, tekrar ve yardımlı/yarım tekrar (`7+3`). Vücut ağırlığı, süreli ve kardiyo hareketlerinin kendi alanları var.
+- Her set için ağırlık, tekrar (yazarak ya da −1/+1 düğmeleriyle) ve yardımlı/yarım tekrar (`7+3`). Vücut ağırlığı, süreli ve kardiyo hareketlerinin kendi alanları var.
 - Her harekette geçen seferki rakamlar görünür, kutulara da silik olarak yazılır. Yeni rekor yazarken vurgulanır.
 - İlk setin ağırlığını değiştirince aynı ağırlıktaki sonraki setler de güncellenir.
 - Bir hareketi aynı bölgeden başka bir hareketle değiştir, sırasını değiştir, pas geç ya da sadece o harekete not düş (ör. "alet bozuktu").
@@ -205,7 +205,7 @@ Telefonun tarayıcısında çalışan bir web uygulamasıdır (PWA): ana ekrana 
 
 ### Başlarken
 
-1. Telefonda **Chrome** ile <https://kaansoyaslan.github.io/gymlog/> adresini aç, ⋮ → **Ana ekrana ekle** (ya da **Uygulamayı yükle**) de.
+1. Telefonda **Chrome** ile <https://kaansoyaslan.github.io/gymlog/> adresini aç, ⋮ → **Uygulamayı yükle** (ya da **Ana ekrana ekle**) de ya da Ayarlar'daki **Uygulamayı yükle** düğmesini kullan.
 2. Eski notlarını almak için: **Ayarlar → Eski notlarımı içe aktar**, metni yapıştır, önizlemeyi kontrol et ve içe aktar.
 3. **Antrenman** sekmesinde bir plandan başla, önceki antrenmanı kopyala ya da boş bir antrenman başlat.
 4. Arada bir yedek al (**Ayarlar → Yedeği indir**). Yedeği başka bir telefonda geri yükleyebilirsin.
