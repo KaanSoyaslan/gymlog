@@ -5,6 +5,8 @@ const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export function haptic(pattern = 10) {
   if (state.settings.haptics === false) return;
+  // Tarayıcı, sayfaya hiç dokunulmadan titreşime izin vermez
+  if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
   try { navigator.vibrate?.(pattern); } catch { /* desteklenmiyor */ }
 }
 

@@ -1,5 +1,5 @@
 // Uygulama dosyalarını önbelleğe alır; önce ağdan dener ki güncellemeler hemen gelsin, salonda internet yoksa önbellekten açılır.
-const CACHE = 'gymlog-v3';
+const CACHE = 'gymlog-v4';
 const ASSETS = [
   './',
   'index.html',
