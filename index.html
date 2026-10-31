@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0e10">
+  <meta name="description" content="Workout log with animated exercises, plans and progress charts. / Animasyonlu hareketler, planlar ve gelişim grafikleriyle spor defteri.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GymLog">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="GymLog">
+  <meta property="og:title" content="GymLog – workout log">
+  <meta property="og:description" content="Workout log with animated exercises, one-tap copy of your last workout and progress charts. / Animasyonlu hareketler, son antrenmanı kopyalama ve gelişim grafikleriyle spor defteri.">
+  <meta property="og:url" content="https://kaansoyaslan.github.io/gymlog/">
+  <meta property="og:image" content="https://kaansoyaslan.github.io/gymlog/docs/social-preview.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>GymLog – workout log</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    // Tema seçimi sayfa çizilmeden uygulanır (ilk karede renk atlaması olmasın).
+    try {
+      const key = location.search.includes('demo') ? 'gymlog.demo.v1' : 'gymlog.v1';
+      const t = JSON.parse(localStorage.getItem(key) || '{}').settings?.theme;
+      if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+    } catch (e) { /* boş */ }
+  </script>
+</head>
+<body>
+  <main id="view"></main>
+  <nav id="nav" aria-label="Ana menü"></nav>
+  <noscript><p style="padding:24px">GymLog needs JavaScript to run.<br>GymLog için JavaScript gerekli.</p></noscript>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
