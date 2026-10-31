@@ -2,7 +2,7 @@
   "name": "GymLog – workout log",
   "short_name": "GymLog",
   "description": "Workout log with animated exercises, plans and progress charts. / Animasyonlu hareketler, planlar ve gelişim grafikleriyle spor defteri.",
-  "lang": "tr",
+  "lang": "en",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

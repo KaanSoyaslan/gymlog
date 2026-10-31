@@ -1,6 +1,7 @@
 // Bağımlılıksız küçük SVG grafikler: çizgi, sütun, yatay çubuk ve takvim ısı haritası.
 // Her grafik dokunma/üzerine gelme ile değeri gösterir.
-import { MONTHS_SHORT, parseYmd, addDays, fmtDate } from './format.js';
+import { monthShort, parseYmd, addDays, fmtDate } from './format.js';
+import { t } from './i18n.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -31,7 +32,7 @@ function tooltip(host) {
 export function lineChart(host, { data, height = 190, yFmt = (v) => v, tipFmt, goal = null, unit = '' }) {
   host.classList.add('chart');
   host.innerHTML = '';
-  if (!data.length) { host.innerHTML = '<p class="muted small">Henüz veri yok.</p>'; return; }
+  if (!data.length) { host.innerHTML = `<p class="muted small">${t('Henüz veri yok.')}</p>`; return; }
   const W = Math.max(260, host.clientWidth || 320), H = height;
   const pl = 34, pr = 14, pt = 14, pb = 24;
   const xs = data.map((d) => parseYmd(d.date).getTime());
@@ -57,12 +58,12 @@ export function lineChart(host, { data, height = 190, yFmt = (v) => v, tipFmt, g
   const every = Math.ceil(months.length / Math.max(2, Math.floor((W - pl - pr) / 48)));
   months.forEach((d, i) => {
     if (i % every) return;
-    const label = MONTHS_SHORT[d.getMonth()] + (d.getMonth() === 0 && months.length > 6 ? ` ’${String(d.getFullYear()).slice(2)}` : '');
+    const label = monthShort(d.getMonth()) + (d.getMonth() === 0 && months.length > 6 ? ` ’${String(d.getFullYear()).slice(2)}` : '');
     g += `<text class="tick" x="${X(d.getTime())}" y="${H - 6}" text-anchor="middle">${label}</text>`;
   });
   g += `<line class="axis" x1="${pl}" x2="${W - pr}" y1="${H - pb}" y2="${H - pb}"/>`;
   if (goal != null) {
-    g += `<line class="goal" x1="${pl}" x2="${W - pr}" y1="${Y(goal)}" y2="${Y(goal)}"/><text class="goal-label" x="${W - pr}" y="${Y(goal) - 5}" text-anchor="end">Hedef ${esc(yFmt(goal))}</text>`;
+    g += `<line class="goal" x1="${pl}" x2="${W - pr}" y1="${Y(goal)}" y2="${Y(goal)}"/><text class="goal-label" x="${W - pr}" y="${Y(goal) - 5}" text-anchor="end">${esc(t('Hedef {v}', { v: yFmt(goal) }))}</text>`;
   }
   const pts = data.map((d, i) => [X(xs[i]), Y(d.y)]);
   const path = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join('');
@@ -74,7 +75,7 @@ export function lineChart(host, { data, height = 190, yFmt = (v) => v, tipFmt, g
   g += `<g class="hover" style="display:none"><line class="cross" y1="${pt}" y2="${H - pb}"/><circle class="end" r="5"/></g>`;
   g += `<rect class="hit" x="${pl}" y="0" width="${W - pl - pr}" height="${H}" fill="transparent"/>`;
 
-  host.insertAdjacentHTML('beforeend', `<svg class="chart-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Çizgi grafik">${g}</svg>`);
+  host.insertAdjacentHTML('beforeend', `<svg class="chart-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${t('Çizgi grafik')}">${g}</svg>`);
   const svg = host.querySelector('svg');
   const hover = svg.querySelector('.hover');
   const tip = tooltip(host);
@@ -119,7 +120,7 @@ export function columnChart(host, { data, height = 170, fmt = (v) => v }) {
     g += `<text class="tick" x="${cx}" y="${H - 7}" text-anchor="middle">${esc(d.label)}</text>`;
     g += `<rect class="hit" data-i="${i}" x="${cx - band / 2}" y="0" width="${band}" height="${H}" fill="transparent"/>`;
   });
-  host.insertAdjacentHTML('beforeend', `<svg class="chart-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Sütun grafik">${g}</svg>`);
+  host.insertAdjacentHTML('beforeend', `<svg class="chart-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${t('Sütun grafik')}">${g}</svg>`);
   const tip = tooltip(host);
   host.querySelectorAll('.hit').forEach((el) => {
     const show = () => {
@@ -155,7 +156,7 @@ export function heatmap(host, { from, to, days }) {
   const gap = 2, size = cell + gap;
   const W = 22 + weeks * size, H = 16 + 7 * size;
   let g = '';
-  ['Pzt', '', 'Çar', '', 'Cum', '', ''].forEach((l, i) => { if (l) g += `<text class="tick" x="0" y="${16 + i * size + cell - 1}">${l}</text>`; });
+  [t('Pzt'), '', t('Çar'), '', t('Cum'), '', ''].forEach((l, i) => { if (l) g += `<text class="tick" x="0" y="${16 + i * size + cell - 1}">${l}</text>`; });
   let lastMonth = -1;
   for (let w = 0; w < weeks; w++) {
     for (let d = 0; d < 7; d++) {
@@ -166,7 +167,7 @@ export function heatmap(host, { from, to, days }) {
       if (d === 0 || date === from) {
         if (dd.getMonth() !== lastMonth && dd.getDate() <= 7) {
           lastMonth = dd.getMonth();
-          g += `<text class="tick" x="${22 + w * size}" y="10">${MONTHS_SHORT[lastMonth]}</text>`;
+          g += `<text class="tick" x="${22 + w * size}" y="10">${monthShort(lastMonth)}</text>`;
         }
       }
       const v = days.get(date);
@@ -175,7 +176,7 @@ export function heatmap(host, { from, to, days }) {
   }
   const wrap = document.createElement('div');
   wrap.className = 'heat-scroll';
-  wrap.innerHTML = `<svg class="chart-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Spor takvimi">${g}</svg>`;
+  wrap.innerHTML = `<svg class="chart-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${t('Spor takvimi')}">${g}</svg>`;
   host.append(wrap);
   requestAnimationFrame(() => { wrap.scrollLeft = wrap.scrollWidth; });
   const tip = tooltip(host);
@@ -185,7 +186,7 @@ export function heatmap(host, { from, to, days }) {
     const date = el.dataset.d;
     const v = days.get(date);
     const r = el.getBoundingClientRect(), hr = host.getBoundingClientRect();
-    tip.show(v?.tip || `<b>${fmtDate(date, { weekday: true, year: true })}</b><span>Antrenman yok</span>`, r.left - hr.left + r.width / 2, r.top - hr.top);
+    tip.show(v?.tip || `<b>${fmtDate(date, { weekday: true, year: true })}</b><span>${t('Antrenman yok')}</span>`, r.left - hr.left + r.width / 2, r.top - hr.top);
   });
   wrap.addEventListener('pointerleave', () => tip.hide());
 }

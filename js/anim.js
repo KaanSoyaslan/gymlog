@@ -392,16 +392,16 @@ export const PATTERNS = {
   },
 };
 
-// Kendi hareketini eklerken seçilebilecek animasyonlar.
+// Kendi hareketini eklerken seçilebilecek animasyonlar: [anahtar, Türkçe ad, İngilizce ad]
 export const ANIM_CHOICES = [
-  ['dbCurl', 'Dumbbell curl'], ['hammerCurl', 'Hammer curl'], ['barbellCurl', 'Bar curl'], ['cableCurl', 'Kablo curl'], ['preacher', 'Preacher'],
-  ['pushdown', 'Kablo itiş'], ['pushdownSingle', 'Tek kol kablo'], ['overheadExt', 'Baş üstü uzatma'], ['skullCrusher', 'Skull crusher'], ['kickback', 'Kickback'], ['dips', 'Dips'],
-  ['pullup', 'Barfiks'], ['chinup', 'Dar barfiks'], ['latPulldown', 'Pulldown'], ['seatedRow', 'Oturarak çekiş'], ['barbellRow', 'Bar row'], ['dumbbellRow', 'Dumbbell row'], ['straightArm', 'Düz kol çekiş'], ['deadlift', 'Deadlift'], ['hyperext', 'Bel ekstansiyonu'],
-  ['dbPress', 'Omuz press'], ['smithPress', 'Smith press'], ['lateralRaise', 'Yana açış'], ['cableLateral', 'Kablo yana açış'], ['frontRaise', 'Önden kaldırış'], ['reverseFly', 'Arka omuz makine'], ['cableRearFly', 'Kablo arka omuz'], ['facePull', 'Face pull'], ['uprightRow', 'Upright row'], ['shrug', 'Shrug'],
-  ['benchPress', 'Bench press'], ['dbBench', 'Dumbbell bench'], ['inclinePress', 'Incline press'], ['chestPress', 'Göğüs makinesi'], ['pecDeck', 'Pec deck'], ['dbFly', 'Dumbbell fly'], ['crossover', 'Crossover'], ['pushUp', 'Şınav'],
-  ['squat', 'Squat'], ['gobletSquat', 'Goblet squat'], ['legPress', 'Leg press'], ['legExt', 'Leg extension'], ['legCurl', 'Leg curl'], ['rdl', 'RDL'], ['lunge', 'Lunge'], ['hipThrust', 'Hip thrust'], ['calfRaise', 'Calf raise'],
-  ['crunch', 'Crunch'], ['plank', 'Plank'], ['legRaise', 'Bacak kaldırma'], ['cableCrunch', 'Kablo crunch'],
-  ['run', 'Koşu'], ['bike', 'Bisiklet'], ['rowMachine', 'Kürek'],
+  ['dbCurl', 'Dumbbell curl', 'Dumbbell curl'], ['hammerCurl', 'Hammer curl', 'Hammer curl'], ['barbellCurl', 'Bar curl', 'Barbell curl'], ['cableCurl', 'Kablo curl', 'Cable curl'], ['preacher', 'Preacher', 'Preacher'],
+  ['pushdown', 'Kablo itiş', 'Pushdown'], ['pushdownSingle', 'Tek kol kablo', 'Single-arm pushdown'], ['overheadExt', 'Baş üstü uzatma', 'Overhead extension'], ['skullCrusher', 'Skull crusher', 'Skull crusher'], ['kickback', 'Kickback', 'Kickback'], ['dips', 'Dips', 'Dips'],
+  ['pullup', 'Barfiks', 'Pull-up'], ['chinup', 'Dar barfiks', 'Close-grip pull-up'], ['latPulldown', 'Pulldown', 'Pulldown'], ['seatedRow', 'Oturarak çekiş', 'Seated row'], ['barbellRow', 'Bar row', 'Barbell row'], ['dumbbellRow', 'Dumbbell row', 'Dumbbell row'], ['straightArm', 'Düz kol çekiş', 'Straight-arm pulldown'], ['deadlift', 'Deadlift', 'Deadlift'], ['hyperext', 'Bel ekstansiyonu', 'Back extension'],
+  ['dbPress', 'Omuz press', 'Shoulder press'], ['smithPress', 'Smith press', 'Smith press'], ['lateralRaise', 'Yana açış', 'Lateral raise'], ['cableLateral', 'Kablo yana açış', 'Cable lateral raise'], ['frontRaise', 'Önden kaldırış', 'Front raise'], ['reverseFly', 'Arka omuz makine', 'Rear delt machine'], ['cableRearFly', 'Kablo arka omuz', 'Cable rear delt'], ['facePull', 'Face pull', 'Face pull'], ['uprightRow', 'Upright row', 'Upright row'], ['shrug', 'Shrug', 'Shrug'],
+  ['benchPress', 'Bench press', 'Bench press'], ['dbBench', 'Dumbbell bench', 'Dumbbell bench'], ['inclinePress', 'Incline press', 'Incline press'], ['chestPress', 'Göğüs makinesi', 'Chest press machine'], ['pecDeck', 'Pec deck', 'Pec deck'], ['dbFly', 'Dumbbell fly', 'Dumbbell fly'], ['crossover', 'Crossover', 'Crossover'], ['pushUp', 'Şınav', 'Push-up'],
+  ['squat', 'Squat', 'Squat'], ['gobletSquat', 'Goblet squat', 'Goblet squat'], ['legPress', 'Leg press', 'Leg press'], ['legExt', 'Leg extension', 'Leg extension'], ['legCurl', 'Leg curl', 'Leg curl'], ['rdl', 'RDL', 'RDL'], ['lunge', 'Lunge', 'Lunge'], ['hipThrust', 'Hip thrust', 'Hip thrust'], ['calfRaise', 'Calf raise', 'Calf raise'],
+  ['crunch', 'Crunch', 'Crunch'], ['plank', 'Plank', 'Plank'], ['legRaise', 'Bacak kaldırma', 'Leg raise'], ['cableCrunch', 'Kablo crunch', 'Cable crunch'],
+  ['run', 'Koşu', 'Running'], ['bike', 'Bisiklet', 'Bike'], ['rowMachine', 'Kürek', 'Rowing'],
 ];
 
 // B pozu yalnızca değişen alanları yazar; geri kalanı A'dan gelir.

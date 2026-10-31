@@ -1,4 +1,5 @@
 // Küçük arayüz yardımcıları: element oluşturma, alt sayfa (sheet), onay penceresi, bildirim, ikonlar.
+import { t } from './i18n.js';
 
 export function h(tag, props, ...kids) {
   const [name, ...classes] = tag.split('.');
@@ -98,7 +99,7 @@ export function sheet({ title, body, footer, full = false, onClose, className = 
   const panel = h('div.sheet' + (full ? '.full' : '') + (className ? '.' + className : ''), { role: 'dialog', 'aria-modal': 'true', 'aria-label': title || '' });
   const head = h('div.sheet-head', null,
     h('h2.sheet-title', null, title || ''),
-    h('button.icon-btn', { 'aria-label': 'Kapat', onclick: () => api.close() }, icon('x')));
+    h('button.icon-btn', { 'aria-label': t('Kapat'), onclick: () => api.close() }, icon('x')));
   const content = h('div.sheet-body');
   const foot = h('div.sheet-foot');
   panel.append(head, content, foot);
@@ -137,7 +138,7 @@ export function closeAll() {
   while (stack.length) stack[stack.length - 1].close();
 }
 
-export function confirmBox(message, { ok = 'Tamam', cancel = 'Vazgeç', danger = false, title = '' } = {}) {
+export function confirmBox(message, { ok = t('Tamam'), cancel = t('Vazgeç'), danger = false, title = '' } = {}) {
   return new Promise((resolve) => {
     let answered = false;
     const done = (v) => { if (!answered) { answered = true; resolve(v); } sh.close(); };

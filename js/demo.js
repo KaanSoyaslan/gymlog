@@ -1,5 +1,6 @@
 // ?demo adresi için uydurma örnek veri (gerçek verilerden bağımsız, sabit tohumlu).
 import { addDays, parseYmd } from './format.js';
+import { t } from './i18n.js';
 
 function rng(seed) {
   return () => {
@@ -43,7 +44,7 @@ export function demoState() {
       });
       sessions.push({
         id: 'demo-' + sessions.length, date, bodyWeight: Math.round(bw * 10) / 10, groups: plan.groups, items,
-        note: r() < 0.12 ? ['Enerjim yüksekti', 'Uykusuzdum, hafif geçti', 'Makine bozuktu, değiştirdim', 'Harika antrenman'][Math.floor(r() * 4)] : '',
+        note: r() < 0.12 ? t(['Enerjim yüksekti', 'Uykusuzdum, hafif geçti', 'Makine bozuktu, değiştirdim', 'Harika antrenman'][Math.floor(r() * 4)]) : '',
         mood: 3 + Math.floor(r() * 3), createdAt: sessions.length,
       });
       k++;
@@ -52,7 +53,7 @@ export function demoState() {
   }
   return {
     v: 1, sessions,
-    templates: PLANS.map((p) => ({ id: p.id, name: p.name, groups: p.groups, items: p.items.map(([exId, w, reps, sets]) => ({ exId, sets: Array.from({ length: sets }, () => ({ w: w ?? undefined, r: reps })) })) })),
+    templates: PLANS.map((p) => ({ id: p.id, name: t(p.name), groups: p.groups, items: p.items.map(([exId, w, reps, sets]) => ({ exId, sets: Array.from({ length: sets }, () => ({ w: w ?? undefined, r: reps })) })) })),
     weighIns: [{ date: '2026-07-28', kg: 80.9 }, { date: '2026-08-04', kg: 80.6 }],
     customEx: [], exEdits: {}, draft: null,
     settings: { goalWeight: 78, theme: 'auto', lastBackup: null },

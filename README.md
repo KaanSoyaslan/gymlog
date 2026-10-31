@@ -34,7 +34,7 @@ GymLog started as a plain text file on a phone: a date with the body weight in b
 
 GymLog keeps that speed and adds the rest. Start a workout by copying a previous one or a saved plan, change only the weights that went up, and save. Every exercise has a small animation, so abbreviations like `LPD` or `D Rise` turn into something you can recognise. Your old notes can be pasted in once and are converted automatically.
 
-It is a progressive web app (PWA): it runs in the phone's browser, can be installed to the home screen and works offline at the gym. There is no server and no account; everything is stored on your device.
+It is a progressive web app (PWA): it runs in the phone's browser, can be installed to the home screen and works offline at the gym. There is no server and no account; everything is stored on your device. The interface is available in English and Turkish.
 
 ## Features
 
@@ -69,11 +69,11 @@ It is a progressive web app (PWA): it runs in the phone's browser, can be instal
 ## Getting started
 
 1. Open <https://kaansoyaslan.github.io/gymlog/> in **Chrome** on your phone, then use ⋮ → **Add to Home screen** (or **Install app**).
-2. To bring in your old notes: **Settings → Eski notlarımı içe aktar**, paste the text, check the preview and import.
-3. On the **Antrenman** tab, start from a plan, copy a previous workout or start an empty one.
-4. Take a backup now and then (**Settings → Yedeği indir**). You can restore it on another phone.
+2. To bring in your old notes: **Settings → Import my old notes**, paste the text, check the preview and import.
+3. On the **Workout** tab, start from a plan, copy a previous workout or start an empty one.
+4. Take a backup now and then (**Settings → Download backup**). You can restore it on another phone.
 
-The interface is in Turkish.
+The app opens in your phone's language (English or Turkish); you can switch it any time under **Settings → Language**.
 
 ## Privacy
 
@@ -102,7 +102,8 @@ Then open <http://localhost:8080>. Add `?demo` (<http://localhost:8080/?demo>) t
 | `js/importer.js` | Parser that turns the old text notes into workouts |
 | `js/charts.js` | Dependency-free SVG charts: line, columns, bars and calendar heatmap |
 | `js/ui.js` | Small UI helpers: elements, bottom sheets, dialogs, toasts, icons |
-| `js/format.js` | Turkish date and number formatting |
+| `js/i18n.js` | English and Turkish interface texts, with automatic language detection |
+| `js/format.js` | Date and number formatting in both languages |
 | `js/demo.js` | Generated sample data for demo mode |
 | `sw.js`, `manifest.webmanifest` | Installable, offline-capable PWA |
 
@@ -124,13 +125,19 @@ It is built with plain HTML, CSS and JavaScript, with no framework, no dependenc
 
 **Uygulamayı aç:** <https://kaansoyaslan.github.io/gymlog/> · **Demo:** <https://kaansoyaslan.github.io/gymlog/?demo>
 
+<p align="center">
+  <img src="docs/screenshots/tr-home.jpg" alt="Antrenman sekmesi: sıradaki plan, kayıtlı planlar ve kopyalanacak son antrenmanlar" width="200">
+  <img src="docs/screenshots/tr-workout.jpg" alt="Antrenman kaydı: set set ağırlık, tekrar ve yardımlı tekrar; geçen seferki rakamlar ve yeni rekor vurgusu" width="200">
+  <img src="docs/screenshots/tr-progress.jpg" alt="Gelişim: kilo grafiği, spor takvimi ve aylık antrenman sayısı" width="200">
+</p>
+
 ### Genel bakış
 
 GymLog, telefondaki düz bir metin dosyasından doğdu: parantez içinde kiloyla bir tarih, ardından her hareket için `lpd 54x12 x3` gibi bir satır. İşe yarıyordu ama grafik yoktu, geçen haftanın rakamlarını görmek zordu ve her antrenman sıfırdan yazılıyordu.
 
 GymLog bu hızı korur, eksikleri tamamlar. Antrenmana önceki bir antrenmanı ya da kayıtlı bir planı kopyalayarak başlarsın, sadece artan ağırlıkları değiştirir ve kaydedersin. Her hareketin küçük bir animasyonu var; `LPD` ya da `D Rise` gibi kısaltmalar gözle tanınır hale gelir. Eski notlarını bir kez yapıştırman yeterli, otomatik olarak antrenmanlara çevrilir.
 
-Telefonun tarayıcısında çalışan bir web uygulamasıdır (PWA): ana ekrana eklenebilir ve salonda internet olmasa da açılır. Sunucu ya da hesap yok; her şey cihazında saklanır.
+Telefonun tarayıcısında çalışan bir web uygulamasıdır (PWA): ana ekrana eklenebilir ve salonda internet olmasa da açılır. Sunucu ya da hesap yok; her şey cihazında saklanır. Arayüz Türkçe ve İngilizce.
 
 ### Özellikler
 
@@ -168,6 +175,8 @@ Telefonun tarayıcısında çalışan bir web uygulamasıdır (PWA): ana ekrana 
 2. Eski notlarını almak için: **Ayarlar → Eski notlarımı içe aktar**, metni yapıştır, önizlemeyi kontrol et ve içe aktar.
 3. **Antrenman** sekmesinde bir plandan başla, önceki antrenmanı kopyala ya da boş bir antrenman başlat.
 4. Arada bir yedek al (**Ayarlar → Yedeği indir**). Yedeği başka bir telefonda geri yükleyebilirsin.
+
+Uygulama telefonun diliyle (Türkçe ya da İngilizce) açılır; **Ayarlar → Dil** bölümünden istediğin zaman değiştirebilirsin.
 
 ### Gizlilik
 

@@ -1,5 +1,6 @@
 // GymLog: ekranlar ve akış. Veri katmanı store.js'te, animasyonlar anim.js'te.
 import { GROUPS, GROUP_NAME, TYPES, DEFAULT_ANIM } from './exercises.js';
+import { t, setLang, getLang } from './i18n.js';
 import { animSvg, ANIM_CHOICES } from './anim.js';
 import {
   state, DEMO, save, saveSoon, commit, replaceState, uid, clone,
@@ -10,7 +11,7 @@ import {
   upsertTemplate, deleteTemplate, templateLastDone, suggestNext, suggestPlans, templateFromSession,
   newDraft, itemsFromTemplate, itemsFromSession,
 } from './store.js';
-import { today, fmtDate, relDays, num, parseNum, daysBetween, addDays, weekStart, MONTHS, MONTHS_SHORT, parseYmd, compact } from './format.js';
+import { today, fmtDate, relDays, num, parseNum, daysBetween, addDays, weekStart, monthName, monthShort, dayShort, parseYmd, compact } from './format.js';
 import { h, icon, sheet, confirmBox, menu, toast, chips, segmented, closeAll, settled } from './ui.js';
 import { lineChart, columnChart, barList, heatmap } from './charts.js';
 import { parseNotes, norm } from './importer.js';
@@ -20,6 +21,7 @@ const view = document.getElementById('view');
 const nav = document.getElementById('nav');
 const REPO_URL = 'https://github.com/KaanSoyaslan/gymlog';
 
+setLang(state.settings.lang);
 if (DEMO && !state.sessions.length) replaceState(demoState());
 applyTheme();
 
@@ -34,15 +36,18 @@ const MOODS = [
   { v: 1, e: '😫', t: 'Kötü' }, { v: 2, e: '😕', t: 'Zayıf' }, { v: 3, e: '😐', t: 'Normal' }, { v: 4, e: '🙂', t: 'İyi' }, { v: 5, e: '🔥', t: 'Harika' },
 ];
 const moodOf = (v) => MOODS.find((m) => m.v === v);
+const dk = () => t('dk');
+const sn = () => t('sn');
 
 export function summarize(item, type) {
   const sets = item.sets.filter(hasValue);
-  if (!sets.length) return item.skipped ? 'pas' : '—';
+  if (!sets.length) return item.skipped ? t('pas') : '—';
   if (type === 'cardio') {
-    const t = sets.reduce((a, s) => a + (s.t || 0), 0), d = sets.reduce((a, s) => a + (s.d || 0), 0);
-    return [t ? `${num(t)} dk` : '', d ? `${num(d)} km` : ''].filter(Boolean).join(' · ');
+    const d = sets.reduce((a, s) => a + (s.d || 0), 0);
+    const mins = sets.reduce((a, s) => a + (s.t || 0), 0);
+    return [mins ? `${num(mins)} ${dk()}` : '', d ? `${num(d)} km` : ''].filter(Boolean).join(' · ');
   }
-  if (type === 'time') return sets.map((s) => s.t ?? '?').join('/') + ' sn';
+  if (type === 'time') return sets.map((s) => s.t ?? '?').join('/') + ' ' + sn();
   const rep = (s) => (s.r == null ? '?' : s.x ? `${s.r}+${s.x}` : `${s.r}`);
   const ws = sets.map((s) => s.w ?? null), rs = sets.map(rep);
   const allW = ws.every((w) => w === ws[0]), allR = rs.every((r) => r === rs[0]);
@@ -93,7 +98,11 @@ const TABS = [
 ];
 let current = null;
 
-nav.replaceChildren(...TABS.map((t) => h('a.nav-item', { href: `#/${t.id}`, dataset: { tab: t.id } }, icon(t.icon), h('span', null, t.name))));
+function buildNav() {
+  nav.setAttribute('aria-label', t('Ana menü'));
+  nav.replaceChildren(...TABS.map((tab) => h('a.nav-item', { href: `#/${tab.id}`, dataset: { tab: tab.id } }, icon(tab.icon), h('span', null, t(tab.name)))));
+}
+buildNav();
 
 function parseRoute() {
   const [tab = 'workout', sub = ''] = location.hash.replace(/^#\/?/, '').split('/');
@@ -127,17 +136,17 @@ function WorkoutView() {
 
 function StartView() {
   const page = h('div.page');
-  page.append(pageHead('Antrenman', fmtDate(today(), { weekday: true, long: true, year: false })));
+  page.append(pageHead(t('Antrenman'), fmtDate(today(), { weekday: true, long: true, year: false })));
   if (DEMO) page.append(demoBanner());
   const all = sessions();
   if (!all.length && !state.templates.length) {
     page.append(h('div.card.welcome', null,
-      h('h2', null, 'Hoş geldin 👋'),
-      h('p', null, 'Antrenmanlarını hareket hareket kaydet, önceki antrenmanı tek dokunuşla kopyala, ağırlıklarını güncelle. Gelişimini grafiklerde izle.'),
+      h('h2', null, t('Hoş geldin 👋')),
+      h('p', null, t('Antrenmanlarını hareket hareket kaydet, önceki antrenmanı tek dokunuşla kopyala, ağırlıklarını güncelle. Gelişimini grafiklerde izle.')),
       h('div.stack', null,
-        h('button.btn.primary', { onclick: () => importSheet() }, icon('file'), 'Eski notlarımı içe aktar'),
-        h('button.btn', { onclick: () => startBlank() }, icon('plus'), 'İlk antrenmanı başlat'),
-        h('a.btn.ghost', { href: '?demo' }, icon('play'), 'Örnek verilerle dene'))));
+        h('button.btn.primary', { onclick: () => importSheet() }, icon('file'), t('Eski notlarımı içe aktar')),
+        h('button.btn', { onclick: () => startBlank() }, icon('plus'), t('İlk antrenmanı başlat')),
+        h('a.btn.ghost', { href: '?demo' }, icon('play'), t('Örnek verilerle dene')))));
     return page;
   }
 
@@ -145,73 +154,73 @@ function StartView() {
   if (last) {
     const week = all.filter((s) => s.date >= weekStart(today())).length;
     page.append(h('div.status', null,
-      h('div', null, h('span.muted', null, 'Son antrenman'), h('b', null, `${relDays(last.date)}`)),
-      h('div', null, h('span.muted', null, 'Bu hafta'), h('b', null, `${week} antrenman`)),
-      lastWeight() ? h('div', null, h('span.muted', null, 'Kilo'), h('b', null, `${num(lastWeight().kg)} kg`)) : null));
+      h('div', null, h('span.muted', null, t('Son antrenman')), h('b', null, `${relDays(last.date)}`)),
+      h('div', null, h('span.muted', null, t('Bu hafta')), h('b', null, t('{n} antrenman', { n: week }))),
+      lastWeight() ? h('div', null, h('span.muted', null, t('Kilo')), h('b', null, `${num(lastWeight().kg)} kg`)) : null));
   }
 
   const sug = suggestNext();
   if (sug) {
-    const t = sug.t;
+    const plan = sug.t;
     page.append(h('div.card.suggest', null,
       h('div.suggest-top', null,
-        h('span.kicker', null, icon('sparkle'), 'Sıradaki'),
-        h('span.muted.small', null, sug.done ? `son: ${relDays(sug.done)}` : 'henüz yapılmadı')),
-      h('h2', null, t.name),
-      h('div.mini-anims', null, t.items.slice(0, 6).map((it) => animBox(it.exId, 'xs'))),
-      h('p.muted.small', null, t.items.map((it) => ex(it.exId).short).join(' · ')),
-      h('button.btn.primary.block', { onclick: () => startFromTemplate(t) }, icon('play'), 'Başla')));
+        h('span.kicker', null, icon('sparkle'), t('Sıradaki')),
+        h('span.muted.small', null, sug.done ? t('son: {d}', { d: relDays(sug.done) }) : t('henüz yapılmadı'))),
+      h('h2', null, plan.name),
+      h('div.mini-anims', null, plan.items.slice(0, 6).map((it) => animBox(it.exId, 'xs'))),
+      h('p.muted.small', null, plan.items.map((it) => ex(it.exId).short).join(' · ')),
+      h('button.btn.primary.block', { onclick: () => startFromTemplate(plan) }, icon('play'), t('Başla'))));
   }
 
-  const others = state.templates.filter((t) => t !== sug?.t);
+  const others = state.templates.filter((p) => p !== sug?.t);
   if (others.length) {
-    page.append(section('Planlarım', h('div.list', null, others.map((t) => {
-      const done = templateLastDone(t);
+    page.append(section(t('Planlarım'), h('div.list', null, others.map((p) => {
+      const done = templateLastDone(p);
       return h('div.row-card', null,
-        h('div.grow', null, h('b', null, t.name), h('div.muted.small', null, `${t.items.length} hareket${done ? ' · son ' + relDays(done) : ''}`)),
-        h('button.btn.sm', { onclick: () => startFromTemplate(t) }, 'Başla'));
+        h('div.grow', null, h('b', null, p.name), h('div.muted.small', null, t('{n} hareket', { n: p.items.length }) + (done ? t(' · son {d}', { d: relDays(done) }) : ''))),
+        h('button.btn.sm', { onclick: () => startFromTemplate(p) }, t('Başla')));
     }))));
   }
 
   const recent = all.filter((s) => s.items.length).slice(0, 4);
   if (recent.length) {
-    page.append(section('Önceki antrenmanı kopyala', h('div.list', null, recent.map((s) =>
+    page.append(section(t('Önceki antrenmanı kopyala'), h('div.list', null, recent.map((s) =>
       h('div.row-card.copy', null,
-        h('div.date-badge', null, h('b', null, parseYmd(s.date).getDate()), h('span', null, MONTHS_SHORT[parseYmd(s.date).getMonth()])),
+        h('div.date-badge', null, h('b', null, parseYmd(s.date).getDate()), h('span', null, monthShort(parseYmd(s.date).getMonth()))),
         h('div.grow', { onclick: () => sessionDetail(s.id) },
-          h('b', null, groupLabel(sessionGroups(s)) || 'Antrenman'),
+          h('b', null, groupLabel(sessionGroups(s)) || t('Antrenman')),
           h('div.muted.small.clamp', null, s.items.map((it) => ex(it.exId).short).join(' · '))),
-        h('button.btn.sm', { onclick: () => startFromSession(s) }, icon('copy'), 'Kopyala'))))));
+        h('button.btn.sm', { onclick: () => startFromSession(s) }, icon('copy'), t('Kopyala')))))));
   }
 
   page.append(h('div.stack.mt', null,
-    h('button.btn.block', { onclick: () => startBlank() }, icon('plus'), 'Boş antrenman başlat'),
+    h('button.btn.block', { onclick: () => startBlank() }, icon('plus'), t('Boş antrenman başlat')),
     weighInCard()));
   return page;
 }
 
 function weighInCard() {
-  const input = h('input.input', { inputmode: 'decimal', placeholder: lastWeight() ? num(lastWeight().kg) : 'kg', 'aria-label': 'Bugünkü kilo' });
+  const input = h('input.input', { inputmode: 'decimal', placeholder: lastWeight() ? num(lastWeight().kg) : 'kg', 'aria-label': t('Bugünkü kilo') });
   const saveIt = () => {
     const kg = parseNum(input.value);
-    if (!kg || kg < 30 || kg > 300) { toast('Geçerli bir kilo yaz'); return; }
+    if (!kg || kg < 30 || kg > 300) { toast(t('Geçerli bir kilo yaz')); return; }
     addWeighIn(today(), kg);
-    toast(`Kilo kaydedildi: ${num(kg)} kg`);
+    toast(t('Kilo kaydedildi: {kg} kg', { kg: num(kg) }));
     rerender();
   };
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveIt(); });
   return h('div.card.weigh', null,
-    h('div.row.gap', null, icon('scale'), h('b.grow', null, 'Sadece kilo gir'), input, h('button.btn.sm', { onclick: saveIt }, 'Kaydet')),
-    h('p.muted.small', null, 'Spora gitmediğin günlerde de kilonu girebilirsin; kilo grafiğine eklenir.'));
+    h('div.row.gap', null, icon('scale'), h('b.grow', null, t('Sadece kilo gir')), input, h('button.btn.sm', { onclick: saveIt }, t('Kaydet'))),
+    h('p.muted.small', null, t('Spora gitmediğin günlerde de kilonu girebilirsin; kilo grafiğine eklenir.')));
 }
 
 function demoBanner() {
-  return h('div.banner', null, icon('info'), h('span.grow', null, 'Demo modu: örnek verilerle çalışıyor, kendi verilerin etkilenmez.'), h('a', { href: './' }, 'Çık'));
+  return h('div.banner', null, icon('info'), h('span.grow', null, t('Demo modu: örnek verilerle çalışıyor, kendi verilerin etkilenmez.')), h('a', { href: './' }, t('Çık')));
 }
 
 async function setDraft(d) {
   if (state.draft && state.draft.items.length) {
-    const ok = await confirmBox('Devam eden bir antrenman var. Onu silip yenisini başlatayım mı?', { ok: 'Yenisini başlat', danger: true });
+    const ok = await confirmBox(t('Devam eden bir antrenman var. Onu silip yenisini başlatayım mı?'), { ok: t('Yenisini başlat'), danger: true });
     if (!ok) return;
   }
   state.draft = d;
@@ -235,17 +244,17 @@ function DraftView() {
   const editor = Editor(d, { mode: 'draft', changed: saveSoon });
   page.append(
     h('header.page-head.sticky', null,
-      h('div', null, h('h1', null, 'Bugünkü antrenman'), h('p.sub', null, `${d.items.length} hareket`)),
-      h('button.btn.primary.sm', { onclick: () => saveDraft() }, icon('check'), 'Kaydet')),
+      h('div', null, h('h1', null, t('Bugünkü antrenman')), h('p.sub', null, t('{n} hareket', { n: d.items.length }))),
+      h('button.btn.primary.sm', { onclick: () => saveDraft() }, icon('check'), t('Kaydet'))),
     editor,
     h('div.stack.mt', null,
-      h('button.btn.primary.block.lg', { onclick: () => saveDraft() }, icon('check'), 'Antrenmanı kaydet'),
-      h('button.btn.ghost.block', { onclick: discardDraft }, 'Antrenmanı sil')));
+      h('button.btn.primary.block.lg', { onclick: () => saveDraft() }, icon('check'), t('Antrenmanı kaydet')),
+      h('button.btn.ghost.block', { onclick: discardDraft }, t('Antrenmanı sil'))));
   return page;
 }
 
 async function discardDraft() {
-  const ok = await confirmBox('Bu antrenman kaydedilmeden silinsin mi?', { ok: 'Sil', danger: true });
+  const ok = await confirmBox(t('Bu antrenman kaydedilmeden silinsin mi?'), { ok: t('Sil'), danger: true });
   if (!ok) return;
   state.draft = null;
   save();
@@ -271,19 +280,19 @@ function finalize(doc) {
 
 async function saveDraft() {
   const s = finalize(state.draft);
-  if (!s.date) { toast('Tarih seç'); return; }
+  if (!s.date) { toast(t('Tarih seç')); return; }
   if (!s.items.length) {
     if (s.bodyWeight) {
-      const ok = await confirmBox('Hiç hareket girilmedi. Sadece kilo olarak kaydedilsin mi?', { ok: 'Kilo olarak kaydet' });
+      const ok = await confirmBox(t('Hiç hareket girilmedi. Sadece kilo olarak kaydedilsin mi?'), { ok: t('Kilo olarak kaydet') });
       if (!ok) return;
       addWeighIn(s.date, s.bodyWeight);
       state.draft = null;
       save();
-      toast('Kilo kaydedildi');
+      toast(t('Kilo kaydedildi'));
       rerender();
       return;
     }
-    toast('Önce bir hareket ekle');
+    toast(t('Önce bir hareket ekle'));
     return;
   }
   const prs = sessionPRs(s);
@@ -308,20 +317,20 @@ function summarySheet(s, prs) {
   const diff = prevVol ? Math.round(((vol - prevVol) / prevVol) * 100) : null;
   const hasPlan = state.templates.some((t) => similarItems(t, s));
   const sh = sheet({
-    title: 'Antrenman kaydedildi 💪',
+    title: t('Antrenman kaydedildi 💪'),
     body: h('div', null,
       h('div.tiles', null,
-        tile('Hareket', s.items.filter((it) => !it.skipped).length),
-        tile('Set', sets),
-        tile('Hacim', `${compact(vol)} kg`, diff != null ? `${diff >= 0 ? '+' : ''}${diff}% geçen sefere göre` : null),
-        s.bodyWeight ? tile('Kilo', `${num(s.bodyWeight)} kg`) : null),
+        tile(t('Hareket'), s.items.filter((it) => !it.skipped).length),
+        tile(t('Set sayısı'), sets),
+        tile(t('Hacim'), `${compact(vol)} kg`, diff != null ? t('{diff}% geçen sefere göre', { diff: `${diff >= 0 ? '+' : ''}${diff}` }) : null),
+        s.bodyWeight ? tile(t('Kilo'), `${num(s.bodyWeight)} kg`) : null),
       prs.length ? h('div.prs', null,
-        h('h3', null, icon('trophy'), `Yeni rekor${prs.length > 1 ? 'lar' : ''}`),
+        h('h3', null, icon('trophy'), t(prs.length > 1 ? 'Yeni rekorlar' : 'Yeni rekor')),
         prs.map((p) => h('div.pr-row', null, h('b', null, ex(p.exId).name), h('span', null, p.prev ? `${p.prev} → ${p.label}` : p.label))))
-        : h('p.muted', null, 'Bu sefer rekor yok; düzenli devam etmek de kazanç.')),
+        : h('p.muted', null, t('Bu sefer rekor yok; düzenli devam etmek de kazanç.'))),
     footer: h('div.row.gap', null,
-      !hasPlan ? h('button.btn.grow', { onclick: () => { sh.close(); planFromSession(s); } }, 'Plan olarak kaydet') : null,
-      h('button.btn.primary.grow', { onclick: () => sh.close() }, 'Tamam')),
+      !hasPlan ? h('button.btn.grow', { onclick: () => { sh.close(); planFromSession(s); } }, t('Plan olarak kaydet')) : null,
+      h('button.btn.primary.grow', { onclick: () => sh.close() }, t('Tamam'))),
   });
 }
 
@@ -344,17 +353,17 @@ function Editor(doc, { mode, changed = () => {} }) {
   // Üst bilgiler
   const meta = h('div.card.meta');
   if (isPlan) {
-    meta.append(h('label.field', null, h('span', null, 'Plan adı'),
-      h('input.input', { value: doc.name || '', placeholder: 'ör. Sırt + Biceps', oninput: (e) => { doc.name = e.target.value; changed(); } })));
+    meta.append(h('label.field', null, h('span', null, t('Plan adı')),
+      h('input.input', { value: doc.name || '', placeholder: t('ör. Sırt + Biceps'), oninput: (e) => { doc.name = e.target.value; changed(); } })));
   } else {
     const lw = lastWeight();
     meta.append(h('div.row.gap', null,
-      h('label.field.grow', null, h('span', null, 'Tarih'),
+      h('label.field.grow', null, h('span', null, t('Tarih')),
         h('input.input', { type: 'date', value: doc.date || today(), max: addDays(today(), 1), onchange: (e) => { doc.date = e.target.value; changed(); paintItems(); } })),
-      h('label.field.w-kg', null, h('span', null, 'Kilon'),
+      h('label.field.w-kg', null, h('span', null, t('Kilon')),
         h('input.input', { inputmode: 'decimal', value: doc.bodyWeight ?? '', placeholder: lw ? num(lw.kg) : 'kg', oninput: (e) => { doc.bodyWeight = parseNum(e.target.value); changed(); } }))));
   }
-  meta.append(h('div.field', null, h('span', null, isPlan ? 'Bölgeler' : 'Bugün çalışılan bölgeler'),
+  meta.append(h('div.field', null, h('span', null, t(isPlan ? 'Bölgeler' : 'Bugün çalışılan bölgeler')),
     chips(GROUPS, doc.groups || [], (sel) => { doc.groups = sel; changed(); })));
   wrap.append(meta);
 
@@ -363,15 +372,15 @@ function Editor(doc, { mode, changed = () => {} }) {
   const ctx = { mode, doc, changed, repaint: () => paintItems() };
   function paintItems() {
     list.replaceChildren(...doc.items.map((_, i) => ItemCard(doc, i, ctx)));
-    if (!doc.items.length) list.append(h('p.muted.center.pad', null, 'Henüz hareket yok. Aşağıdan ekle ya da önceki antrenmanı kopyala.'));
+    if (!doc.items.length) list.append(h('p.muted.center.pad', null, t('Henüz hareket yok. Aşağıdan ekle ya da önceki antrenmanı kopyala.')));
     const sub = wrap.closest('.page')?.querySelector('.page-head .sub');
-    if (sub && mode === 'draft') sub.textContent = `${doc.items.length} hareket`;
+    if (sub && mode === 'draft') sub.textContent = t('{n} hareket', { n: doc.items.length });
   }
   paintItems();
 
   wrap.append(h('button.add-ex', {
     onclick: () => pickExercise({
-      title: 'Hareket ekle',
+      title: t('Hareket ekle'),
       groups: doc.groups,
       onPick: (id) => {
         doc.items.push({ exId: id, sets: defaultSets(id, isPlan), note: '', skipped: false });
@@ -380,19 +389,19 @@ function Editor(doc, { mode, changed = () => {} }) {
         requestAnimationFrame(() => list.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
       },
     }),
-  }, icon('plus'), 'Hareket ekle'));
+  }, icon('plus'), t('Hareket ekle')));
 
   if (!isPlan) {
     const moodRow = h('div.moods');
     const paintMood = () => moodRow.replaceChildren(...MOODS.map((m) => h('button.mood' + (doc.mood === m.v ? '.on' : ''), {
-      type: 'button', title: m.t, 'aria-label': m.t, 'aria-pressed': String(doc.mood === m.v),
+      type: 'button', title: t(m.t), 'aria-label': t(m.t), 'aria-pressed': String(doc.mood === m.v),
       onclick: () => { doc.mood = doc.mood === m.v ? null : m.v; changed(); paintMood(); },
-    }, h('span', null, m.e), h('small', null, m.t))));
+    }, h('span', null, m.e), h('small', null, t(m.t)))));
     paintMood();
     wrap.append(h('div.card', null,
-      h('label.field', null, h('span', null, 'Genel not'),
-        h('textarea.input', { rows: 3, placeholder: 'ör. uykusuzdum, sırtım ağrıdı, keyifli antrenman…', value: doc.note || '', oninput: (e) => { doc.note = e.target.value; changed(); } })),
-      h('div.field', null, h('span', null, 'Nasıldı?'), moodRow)));
+      h('label.field', null, h('span', null, t('Genel not')),
+        h('textarea.input', { rows: 3, placeholder: t('ör. uykusuzdum, sırtım ağrıdı, keyifli antrenman…'), value: doc.note || '', oninput: (e) => { doc.note = e.target.value; changed(); } })),
+      h('div.field', null, h('span', null, t('Nasıldı?')), moodRow)));
   }
   return wrap;
 }
@@ -416,33 +425,33 @@ function ItemCard(doc, i, ctx) {
   const rec = isPlan ? null : records(it.exId, { excludeId: doc.id });
   const card = h('div.ex-card' + (it.skipped ? '.skipped' : ''));
 
-  const more = h('button.icon-btn', { 'aria-label': 'Hareket seçenekleri', onclick: () => menu(e.name, [
-    { label: 'Hareketi değiştir', icon: 'swap', action: () => swapItem(doc, i, ctx) },
-    i > 0 && { label: 'Yukarı taşı', icon: 'up', action: () => { [doc.items[i - 1], doc.items[i]] = [doc.items[i], doc.items[i - 1]]; ctx.changed(); ctx.repaint(); } },
-    i < doc.items.length - 1 && { label: 'Aşağı taşı', icon: 'down', action: () => { [doc.items[i + 1], doc.items[i]] = [doc.items[i], doc.items[i + 1]]; ctx.changed(); ctx.repaint(); } },
-    { label: 'Hareket bilgisi', icon: 'info', action: () => exerciseDetail(it.exId) },
-    { label: 'Kaldır', icon: 'trash', danger: true, action: () => { doc.items.splice(i, 1); ctx.changed(); ctx.repaint(); } },
+  const more = h('button.icon-btn', { 'aria-label': t('Hareket seçenekleri'), onclick: () => menu(e.name, [
+    { label: t('Hareketi değiştir'), icon: 'swap', action: () => swapItem(doc, i, ctx) },
+    i > 0 && { label: t('Yukarı taşı'), icon: 'up', action: () => { [doc.items[i - 1], doc.items[i]] = [doc.items[i], doc.items[i - 1]]; ctx.changed(); ctx.repaint(); } },
+    i < doc.items.length - 1 && { label: t('Aşağı taşı'), icon: 'down', action: () => { [doc.items[i + 1], doc.items[i]] = [doc.items[i], doc.items[i + 1]]; ctx.changed(); ctx.repaint(); } },
+    { label: t('Hareket bilgisi'), icon: 'info', action: () => exerciseDetail(it.exId) },
+    { label: t('Kaldır'), icon: 'trash', danger: true, action: () => { doc.items.splice(i, 1); ctx.changed(); ctx.repaint(); } },
   ]) }, icon('more'));
 
   const info = [];
-  if (prev) info.push(h('span', null, `Son: `, h('b', null, summarize(prev.item, e.type)), ` · ${fmtDate(prev.date)}`));
-  else if (!isPlan) info.push(h('span', null, 'İlk kez'));
-  if (rec?.maxW && e.type === 'w') info.push(h('span', null, ` · En iyi ${num(rec.maxW)} kg`));
+  if (prev) info.push(h('span', null, t('Son: '), h('b', null, summarize(prev.item, e.type)), ` · ${fmtDate(prev.date)}`));
+  else if (!isPlan) info.push(h('span', null, t('İlk kez')));
+  if (rec?.maxW && e.type === 'w') info.push(h('span', null, t(' · En iyi {kg} kg', { kg: num(rec.maxW) })));
   if (prev?.item.note) info.push(h('span.prev-note', null, ` · “${prev.item.note}”`));
 
   card.append(h('div.ex-head', null,
-    h('button.anim-btn', { 'aria-label': `${e.name} animasyonu`, onclick: () => exerciseDetail(it.exId) }, animBox(it.exId, 'sm')),
+    h('button.anim-btn', { 'aria-label': t('{name} animasyonu', { name: e.name }), onclick: () => exerciseDetail(it.exId) }, animBox(it.exId, 'sm')),
     h('div.ex-title', null,
       h('b', null, e.name),
-      h('span.muted.small', null, [e.short, ...e.groups.map((g) => GROUP_NAME[g])].filter((x, k, a) => a.indexOf(x) === k).join(' · ')),
+      h('span.muted.small', null, [e.short !== e.name && e.short, ...e.groups.map((g) => GROUP_NAME[g])].filter((x, k, a) => x && a.indexOf(x) === k).join(' · ')),
       info.length ? h('span.ex-prev.small', null, info) : null),
     more));
 
-  if (it.skipped) card.append(h('div.skip-badge', null, icon('skip'), 'Pas geçildi'));
+  if (it.skipped) card.append(h('div.skip-badge', null, icon('skip'), t('Pas geçildi')));
 
   // Setler
   const table = h('div.sets', { style: `--cols:${fields.length}` });
-  table.append(h('div.set-row.head', null, h('span.set-no', null, 'Set'), fields.map((f) => h('span.set-label' + (f.small ? '.small' : ''), null, f.label)), h('span.set-del')));
+  table.append(h('div.set-row.head', null, h('span.set-no', null, t('Set')), fields.map((f) => h('span.set-label' + (f.small ? '.small' : ''), null, t(f.label))), h('span.set-del')));
   it.sets.forEach((set, j) => {
     const row = h('div.set-row');
     const markPR = () => {
@@ -456,7 +465,7 @@ function ItemCard(doc, i, ctx) {
         inputmode: f.mode, enterkeyhint: 'next', autocomplete: 'off',
         value: set[f.k] != null && !(f.k === 'x' && !set[f.k]) ? num(set[f.k]) : '',
         placeholder: f.k === 'x' ? '+' : ph != null ? num(ph) : '–',
-        'aria-label': `${j + 1}. set ${f.label}`,
+        'aria-label': t('{n}. set {label}', { n: j + 1, label: t(f.label) }),
       });
       input.addEventListener('focus', () => { input.dataset.old = input.value; setTimeout(() => input.select(), 0); });
       input.addEventListener('input', () => {
@@ -485,24 +494,24 @@ function ItemCard(doc, i, ctx) {
       });
       row.append(input);
     }
-    row.append(h('button.icon-btn.sm.set-del', { 'aria-label': `${j + 1}. seti sil`, onclick: () => { it.sets.splice(j, 1); ctx.changed(); ctx.repaint(); } }, icon('x')));
+    row.append(h('button.icon-btn.sm.set-del', { 'aria-label': t('{n}. seti sil', { n: j + 1 }), onclick: () => { it.sets.splice(j, 1); ctx.changed(); ctx.repaint(); } }, icon('x')));
     markPR();
     table.append(row);
   });
   card.append(table);
 
   const noteInput = h('input.input.note-in', {
-    value: it.note || '', placeholder: 'Bu hareket için not (ör. alet bozuk)',
+    value: it.note || '', placeholder: t('Bu hareket için not (ör. alet bozuk)'),
     oninput: (ev) => { it.note = ev.target.value; ctx.changed(); },
   });
   const noteWrap = h('div.note-wrap', { hidden: !it.note }, noteInput);
   card.append(noteWrap);
 
   card.append(h('div.ex-actions', null,
-    h('button.btn.sm.ghost', { onclick: () => { const last = it.sets[it.sets.length - 1]; it.sets.push(last ? cleanSet(last) : {}); ctx.changed(); ctx.repaint(); } }, icon('plus'), 'Set'),
-    h('button.btn.sm.ghost', { onclick: () => { noteWrap.hidden = false; noteInput.focus(); } }, icon('note'), 'Not'),
-    !isPlan ? h('button.btn.sm.ghost' + (it.skipped ? '.on' : ''), { onclick: () => { it.skipped = !it.skipped; ctx.changed(); ctx.repaint(); } }, icon('skip'), it.skipped ? 'Pas geri al' : 'Pas geç') : null,
-    h('button.btn.sm.ghost', { onclick: () => swapItem(doc, i, ctx) }, icon('swap'), 'Değiştir')));
+    h('button.btn.sm.ghost', { onclick: () => { const last = it.sets[it.sets.length - 1]; it.sets.push(last ? cleanSet(last) : {}); ctx.changed(); ctx.repaint(); } }, icon('plus'), t('Set')),
+    h('button.btn.sm.ghost', { onclick: () => { noteWrap.hidden = false; noteInput.focus(); } }, icon('note'), t('Not')),
+    !isPlan ? h('button.btn.sm.ghost' + (it.skipped ? '.on' : ''), { onclick: () => { it.skipped = !it.skipped; ctx.changed(); ctx.repaint(); } }, icon('skip'), t(it.skipped ? 'Pas geri al' : 'Pas geç')) : null,
+    h('button.btn.sm.ghost', { onclick: () => swapItem(doc, i, ctx) }, icon('swap'), t('Değiştir'))));
   return card;
 }
 
@@ -510,7 +519,7 @@ function swapItem(doc, i, ctx) {
   const it = doc.items[i];
   const groups = [...new Set([...(ex(it.exId).groups || []), ...(doc.groups || [])])];
   pickExercise({
-    title: `Değiştir: ${ex(it.exId).short}`,
+    title: t('Değiştir: {name}', { name: ex(it.exId).short }),
     groups,
     exclude: it.exId,
     onPick: (id) => {
@@ -529,7 +538,7 @@ function groupFilter(initial, onChange) {
   let sel = initial.slice();
   const wrap = h('div.chips.scroll-x');
   const paint = () => wrap.replaceChildren(
-    h('button.chip' + (!sel.length ? '.on' : ''), { type: 'button', onclick: () => { sel = []; paint(); onChange(sel); } }, 'Tümü'),
+    h('button.chip' + (!sel.length ? '.on' : ''), { type: 'button', onclick: () => { sel = []; paint(); onChange(sel); } }, t('Tümü')),
     ...GROUPS.map((g) => h('button.chip' + (sel.includes(g.id) ? '.on' : ''), {
       type: 'button',
       onclick: () => { sel = sel.includes(g.id) ? sel.filter((x) => x !== g.id) : [...sel, g.id]; paint(); onChange(sel); },
@@ -542,29 +551,29 @@ function pickExercise({ title, groups = [], onPick, exclude }) {
   let sel = groups.slice();
   let q = '';
   const listEl = h('div.pick-list');
-  const search = h('input.input', { type: 'search', placeholder: 'Ara: lpd, hammer, squat…', oninput: (e) => { q = e.target.value; paint(); } });
+  const search = h('input.input', { type: 'search', placeholder: t('Ara: lpd, hammer, squat…'), oninput: (e) => { q = e.target.value; paint(); } });
   const groupChips = groupFilter(sel, (v) => { sel = v; paint(); });
   const sh = sheet({
     title, full: true,
     body: h('div', null, h('div.pick-tools', null, search, groupChips), listEl),
-    footer: h('button.btn.block', { onclick: () => { sh.close(); exerciseForm(null, { groups: sel, onSaved: onPick }); } }, icon('plus'), 'Listede yok mu? Yeni hareket oluştur'),
+    footer: h('button.btn.block', { onclick: () => { sh.close(); exerciseForm(null, { groups: sel, onSaved: onPick }); } }, icon('plus'), t('Listede yok mu? Yeni hareket oluştur')),
   });
   function paint() {
     const nq = norm(q);
     let list = exercises().filter((e) => !e.hidden && e.id !== exclude);
     if (nq) list = list.filter((e) => [e.name, e.short, ...(e.aliases || [])].some((s) => norm(s).includes(nq)));
     else if (sel.length) list = list.filter((e) => e.groups.some((g) => sel.includes(g)));
-    list.sort((a, b) => usageCount(b.id) - usageCount(a.id) || a.name.localeCompare(b.name, 'tr'));
+    list.sort((a, b) => usageCount(b.id) - usageCount(a.id) || a.name.localeCompare(b.name, getLang()));
     listEl.replaceChildren(...list.map((e) => {
       const n = usageCount(e.id);
       const last = lastPerf(e.id);
       return h('button.pick-row', { onclick: () => { sh.close(); onPick(e.id); } },
         animBox(e.id, 'sm'),
         h('span.grow', null, h('b', null, e.name), h('span.muted.small', null, [e.short, e.groups.map((g) => GROUP_NAME[g]).join(', ')].join(' · ')),
-          last ? h('span.small.ex-prev', null, `Son: ${summarize(last.item, e.type)} · ${fmtDate(last.date)}`) : null),
+          last ? h('span.small.ex-prev', null, `${t('Son: ')}${summarize(last.item, e.type)} · ${fmtDate(last.date)}`) : null),
         n ? h('span.count', null, `${n}×`) : null);
     }));
-    if (!list.length) listEl.append(h('p.muted.center.pad', null, 'Bulunamadı. Aşağıdan yeni hareket oluşturabilirsin.'));
+    if (!list.length) listEl.append(h('p.muted.center.pad', null, t('Bulunamadı. Aşağıdan yeni hareket oluşturabilirsin.')));
   }
   paint();
 }
@@ -579,38 +588,38 @@ function exerciseDetail(id) {
   body.append(h('div.anim-hero', null, animBox(id, 'lg')));
   body.append(h('div.center', null,
     h('h3.ex-name', null, e.name),
-    h('p.muted', null, [e.short, ...e.groups.map((g) => GROUP_NAME[g]), TYPES.find((t) => t.id === e.type)?.name].join(' · '))));
+    h('p.muted', null, [e.short !== e.name && e.short, ...e.groups.map((g) => GROUP_NAME[g]), TYPES.find((ty) => ty.id === e.type)?.name].filter(Boolean).join(' · '))));
   if (e.tip) body.append(h('p.tip', null, icon('info'), e.tip));
   if (hist.length) {
     body.append(h('div.tiles', null,
-      tile('Yapıldı', `${hist.length} kez`),
-      last ? tile('Son', summarize(last.item, e.type), fmtDate(last.date)) : null,
-      e.type === 'w' && rec.maxW ? tile('En ağır', `${num(rec.maxW)} kg`, rec.wDate ? fmtDate(rec.wDate) : null) : null,
-      e.type === 'w' && rec.e1 ? tile('Tahmini 1RM', `${num(rec.e1, 1)} kg`) : null,
-      e.type === 'bw' ? tile('En çok tekrar', rec.maxR) : null));
+      tile(t('Yapıldı'), t('{n} kez', { n: hist.length })),
+      last ? tile(t('Son'), summarize(last.item, e.type), fmtDate(last.date)) : null,
+      e.type === 'w' && rec.maxW ? tile(t('En ağır'), `${num(rec.maxW)} kg`, rec.wDate ? fmtDate(rec.wDate) : null) : null,
+      e.type === 'w' && rec.e1 ? tile(t('Tahmini 1RM'), `${num(rec.e1, 1)} kg`) : null,
+      e.type === 'bw' ? tile(t('En çok tekrar'), rec.maxR) : null));
     if (hist.length >= 2) {
       const chart = h('div.chart-host');
-      body.append(h('h4.section-title', null, e.type === 'w' ? 'En ağır set (kg)' : 'Toplam tekrar'), chart);
+      body.append(h('h4.section-title', null, t(e.type === 'w' ? 'En ağır set (kg)' : 'Toplam tekrar')), chart);
       requestAnimationFrame(() => lineChart(chart, {
         data: hist.map((x) => ({ date: x.date, y: e.type === 'w' ? itemStats(x.item, 'w').maxW : itemStats(x.item, e.type).reps, s: summarize(x.item, e.type) })),
         height: 160, yFmt: (v) => num(v), tipFmt: (d) => `<b>${d.s}</b><span>${fmtDate(d.date, { year: true })}</span>`,
       }));
     }
-    body.append(h('h4.section-title', null, 'Son kayıtlar'), h('div.hist-mini', null, hist.slice(-8).reverse().map((x) =>
+    body.append(h('h4.section-title', null, t('Son kayıtlar')), h('div.hist-mini', null, hist.slice(-8).reverse().map((x) =>
       h('div.hist-row', null, h('span.muted', null, fmtDate(x.date, { year: true })), h('b', null, summarize(x.item, e.type)), x.item.note ? h('span.muted.small', null, x.item.note) : null))));
-  } else body.append(h('p.muted.center', null, 'Bu hareketi henüz kaydetmedin.'));
-  if (e.aliases?.length) body.append(h('p.muted.small', null, 'Diğer adları: ' + e.aliases.join(', ')));
+  } else body.append(h('p.muted.center', null, t('Bu hareketi henüz kaydetmedin.')));
+  if (e.aliases?.length) body.append(h('p.muted.small', null, t('Diğer adları: ') + e.aliases.join(', ')));
 
   const sh = sheet({
     title: e.short, body,
     footer: h('div.row.gap', null,
-      h('button.btn.grow', { onclick: () => { sh.close(); exerciseForm(id); } }, icon('edit'), 'Düzenle'),
+      h('button.btn.grow', { onclick: () => { sh.close(); exerciseForm(id); } }, icon('edit'), t('Düzenle')),
       e.custom
         ? h('button.btn.ghost', { onclick: async () => {
-          if (usageCount(id) && !(await confirmBox('Bu hareket antrenmanlarında kullanılıyor. Yine de silinsin mi? Eski kayıtlarda adı görünmez.', { ok: 'Sil', danger: true }))) return;
-          deleteExercise(id); sh.close(); rerender(); toast('Hareket silindi');
+          if (usageCount(id) && !(await confirmBox(t('Bu hareket antrenmanlarında kullanılıyor. Yine de silinsin mi? Eski kayıtlarda adı görünmez.'), { ok: t('Sil'), danger: true }))) return;
+          deleteExercise(id); sh.close(); rerender(); toast(t('Hareket silindi'));
         } }, icon('trash'))
-        : h('button.btn.ghost', { onclick: () => { saveExercise({ id, hidden: !e.hidden }); sh.close(); rerender(); toast(e.hidden ? 'Listede tekrar görünecek' : 'Seçim listesinden gizlendi'); } }, e.hidden ? 'Göster' : 'Gizle')),
+        : h('button.btn.ghost', { onclick: () => { saveExercise({ id, hidden: !e.hidden }); sh.close(); rerender(); toast(t(e.hidden ? 'Listede tekrar görünecek' : 'Seçim listesinden gizlendi')); } }, t(e.hidden ? 'Göster' : 'Gizle'))),
   });
 }
 
@@ -621,39 +630,39 @@ function exerciseForm(id, { groups = [], onSaved } = {}) {
     : { name: '', short: '', groups: groups.slice(0, 2), type: 'w', anim: DEFAULT_ANIM[groups[0]] || 'dbCurl', aliases: '', tip: '' };
   let animTouched = !!e;
   const animGrid = h('div.anim-grid');
-  const paintAnims = () => animGrid.replaceChildren(...ANIM_CHOICES.map(([key, label]) => h('button.anim-choice' + (data.anim === key ? '.on' : ''), {
+  const paintAnims = () => animGrid.replaceChildren(...ANIM_CHOICES.map(([key, tr, en]) => h('button.anim-choice' + (data.anim === key ? '.on' : ''), {
     type: 'button', 'aria-pressed': String(data.anim === key),
     onclick: () => { data.anim = key; animTouched = true; paintAnims(); },
-  }, h('div.anim-box.sm', null, animSvg(key)), h('span', null, label))));
+  }, h('div.anim-box.sm', null, animSvg(key)), h('span', null, getLang() === 'en' ? en : tr))));
   paintAnims();
   const body = h('div.form',
     null,
-    h('label.field', null, h('span', null, 'Hareket adı'), h('input.input', { value: data.name, placeholder: 'ör. Machine Chest Fly', oninput: (ev) => { data.name = ev.target.value; } })),
-    h('label.field', null, h('span', null, 'Kısaltma (notlardaki adı)'), h('input.input', { value: data.short, placeholder: 'ör. CF', oninput: (ev) => { data.short = ev.target.value; } })),
-    h('div.field', null, h('span', null, 'Bölgeler'), chips(GROUPS, data.groups, (v) => {
+    h('label.field', null, h('span', null, t('Hareket adı')), h('input.input', { value: data.name, placeholder: t('ör. Machine Chest Fly'), oninput: (ev) => { data.name = ev.target.value; } })),
+    h('label.field', null, h('span', null, t('Kısaltma (notlardaki adı)')), h('input.input', { value: data.short, placeholder: t('ör. CF'), oninput: (ev) => { data.short = ev.target.value; } })),
+    h('div.field', null, h('span', null, t('Bölgeler')), chips(GROUPS, data.groups, (v) => {
       data.groups = v;
       if (!animTouched && DEFAULT_ANIM[v[0]]) { data.anim = DEFAULT_ANIM[v[0]]; paintAnims(); }
     })),
-    h('div.field', null, h('span', null, 'Kayıt türü'), segmented(TYPES, data.type, (v) => { data.type = v; })),
-    h('div.field', null, h('span', null, 'Animasyon'), animGrid),
-    h('label.field', null, h('span', null, 'Diğer adları (virgülle)'), h('input.input', { value: data.aliases, placeholder: 'ör. göğüs açış, fly', oninput: (ev) => { data.aliases = ev.target.value; } })),
-    h('label.field', null, h('span', null, 'İpucu'), h('textarea.input', { rows: 2, value: data.tip, placeholder: 'Kendine hatırlatma', oninput: (ev) => { data.tip = ev.target.value; } })));
+    h('div.field', null, h('span', null, t('Kayıt türü')), segmented(TYPES, data.type, (v) => { data.type = v; })),
+    h('div.field', null, h('span', null, t('Animasyon')), animGrid),
+    h('label.field', null, h('span', null, t('Diğer adları (virgülle)')), h('input.input', { value: data.aliases, placeholder: t('ör. göğüs açış, fly'), oninput: (ev) => { data.aliases = ev.target.value; } })),
+    h('label.field', null, h('span', null, t('İpucu')), h('textarea.input', { rows: 2, value: data.tip, placeholder: t('Kendine hatırlatma'), oninput: (ev) => { data.tip = ev.target.value; } })));
   const sh = sheet({
-    title: e ? 'Hareketi düzenle' : 'Yeni hareket', full: true, body,
+    title: t(e ? 'Hareketi düzenle' : 'Yeni hareket'), full: true, body,
     footer: h('div.row.gap', null,
-      e?.builtin && h('button.btn.ghost', { onclick: () => { resetExercise(e.id); sh.close(); rerender(); toast('Varsayılana döndü'); } }, 'Varsayılan'),
+      e?.builtin && h('button.btn.ghost', { onclick: () => { resetExercise(e.id); sh.close(); rerender(); toast(t('Varsayılana döndü')); } }, t('Varsayılan')),
       h('button.btn.primary.grow', { onclick: () => {
-        if (!data.name.trim()) { toast('Hareket adını yaz'); return; }
-        if (!data.groups.length) { toast('En az bir bölge seç'); return; }
+        if (!data.name.trim()) { toast(t('Hareket adını yaz')); return; }
+        if (!data.groups.length) { toast(t('En az bir bölge seç')); return; }
         const saved = saveExercise({
           ...data, name: data.name.trim(), short: data.short.trim() || data.name.trim(),
           aliases: data.aliases.split(',').map((s) => s.trim()).filter(Boolean), tip: data.tip.trim(),
         });
         sh.close();
-        toast(e ? 'Hareket güncellendi' : 'Hareket eklendi');
+        toast(t(e ? 'Hareket güncellendi' : 'Hareket eklendi'));
         rerender();
         onSaved?.(saved);
-      } }, 'Kaydet')),
+      } }, t('Kaydet'))),
   });
 }
 
@@ -662,9 +671,9 @@ let histFilter = [];
 function HistoryView() {
   const page = h('div.page');
   const all = sessions();
-  page.append(pageHead('Geçmiş', `${all.length} antrenman`));
+  page.append(pageHead(t('Geçmiş'), t('{n} antrenman', { n: all.length })));
   if (!all.length && !state.weighIns.length) {
-    page.append(empty('Henüz kayıtlı antrenman yok.', h('button.btn.primary', { onclick: () => importSheet() }, 'Eski notlarımı içe aktar')));
+    page.append(empty(t('Henüz kayıtlı antrenman yok.'), h('button.btn.primary', { onclick: () => importSheet() }, t('Eski notlarımı içe aktar'))));
     return page;
   }
   page.append(chips(GROUPS.filter((g) => all.some((s) => sessionGroups(s).includes(g.id))), histFilter, (v) => { histFilter = v; rerender(); }, { className: 'scroll-x' }));
@@ -684,7 +693,7 @@ function HistoryView() {
     if (key !== month) {
       month = key;
       const count = list.filter((s) => s.date.startsWith(en.date.slice(0, 7))).length;
-      page.append(h('h2.month', null, `${MONTHS[d.getMonth()]} ${d.getFullYear()}`, h('span.muted', null, `${count} antrenman`)));
+      page.append(h('h2.month', null, `${monthName(d.getMonth())} ${d.getFullYear()}`, h('span.muted', null, t('{n} antrenman', { n: count }))));
       box = h('div.list');
       page.append(box);
     }
@@ -701,14 +710,14 @@ function sessionCard(s) {
     const e = ex(it.exId);
     return h('div.line' + (it.skipped ? '.skipped' : ''), null,
       h('b', null, e.short, prs.some((p) => p.exId === it.exId) ? icon('trophy', 'pr-ic') : null),
-      h('span', null, it.skipped ? 'pas' : summarize(it, e.type)));
+      h('span', null, it.skipped ? t('pas') : summarize(it, e.type)));
   });
-  if (s.items.length > 7) lines.push(h('div.muted.small', null, `+${s.items.length - 7} hareket`));
+  if (s.items.length > 7) lines.push(h('div.muted.small', null, t('+{n} hareket', { n: s.items.length - 7 })));
   return h('button.session-card', { onclick: () => sessionDetail(s.id) },
-    h('div.date-badge', null, h('b', null, d.getDate()), h('span', null, ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'][d.getDay()])),
+    h('div.date-badge', null, h('b', null, d.getDate()), h('span', null, dayShort(d.getDay()))),
     h('div.grow', null,
       h('div.session-top', null,
-        h('b', null, groupLabel(sessionGroups(s)) || (s.items.length ? 'Antrenman' : 'Spor günü')),
+        h('b', null, groupLabel(sessionGroups(s)) || t(s.items.length ? 'Antrenman' : 'Spor günü')),
         h('span.muted.small', null, [s.bodyWeight ? `${num(s.bodyWeight)} kg` : '', mood ? mood.e : ''].filter(Boolean).join(' '))),
       lines.length ? h('div.lines', null, lines) : null,
       s.note ? h('p.session-note', null, s.note) : null));
@@ -723,14 +732,14 @@ function sessionDetail(id) {
   body.append(h('div.chips.static', null,
     sessionGroups(s).map((g) => h('span.chip.on', null, GROUP_NAME[g])),
     s.bodyWeight ? h('span.chip', null, `⚖ ${num(s.bodyWeight)} kg`) : null,
-    mood ? h('span.chip', null, `${mood.e} ${mood.t}`) : null));
-  if (prs.length) body.append(h('div.prs', null, h('h3', null, icon('trophy'), 'Rekorlar'), prs.map((p) => h('div.pr-row', null, h('b', null, ex(p.exId).name), h('span', null, p.prev ? `${p.prev} → ${p.label}` : p.label)))));
+    mood ? h('span.chip', null, `${mood.e} ${t(mood.t)}`) : null));
+  if (prs.length) body.append(h('div.prs', null, h('h3', null, icon('trophy'), t('Rekorlar')), prs.map((p) => h('div.pr-row', null, h('b', null, ex(p.exId).name), h('span', null, p.prev ? `${p.prev} → ${p.label}` : p.label)))));
   for (const it of s.items) {
     const e = ex(it.exId);
     body.append(h('div.detail-ex' + (it.skipped ? '.skipped' : ''), null,
       animBox(it.exId, 'sm'),
       h('div.grow', null,
-        h('b', null, e.name, it.skipped ? h('span.tag', null, 'pas') : null),
+        h('b', null, e.name, it.skipped ? h('span.tag', null, t('pas')) : null),
         h('div.detail-sets', null, it.sets.filter(hasValue).map((st, j) => h('span', null, `${j + 1}. ${setText(st, e.type)}`))),
         it.note ? h('p.muted.small', null, `“${it.note}”`) : null)));
   }
@@ -738,24 +747,24 @@ function sessionDetail(id) {
   const sh = sheet({
     title: fmtDate(s.date, { weekday: true, long: true, year: true }), body,
     footer: h('div.row.gap', null,
-      h('button.btn.primary.grow', { onclick: () => { sh.close(); startFromSession(s); } }, icon('copy'), 'Kopyala, başlat'),
-      h('button.btn', { onclick: () => { sh.close(); editSession(s.id); } }, icon('edit'), 'Düzenle'),
-      h('button.icon-btn', { 'aria-label': 'Diğer', onclick: () => menu('Antrenman', [
-        { label: 'Plan olarak kaydet', icon: 'file', action: () => { sh.close(); planFromSession(s); } },
-        { label: 'Metin olarak kopyala', icon: 'copy', action: () => copyText(s) },
-        { label: 'Sil', icon: 'trash', danger: true, action: async () => {
-          if (!(await confirmBox('Bu antrenman silinsin mi?', { ok: 'Sil', danger: true }))) return;
-          deleteSession(s.id); sh.close(); rerender(); toast('Silindi');
+      h('button.btn.primary.grow', { onclick: () => { sh.close(); startFromSession(s); } }, icon('copy'), t('Kopyala, başlat')),
+      h('button.btn', { onclick: () => { sh.close(); editSession(s.id); } }, icon('edit'), t('Düzenle')),
+      h('button.icon-btn', { 'aria-label': t('Diğer'), onclick: () => menu(t('Antrenman'), [
+        { label: t('Plan olarak kaydet'), icon: 'file', action: () => { sh.close(); planFromSession(s); } },
+        { label: t('Metin olarak kopyala'), icon: 'copy', action: () => copyText(s) },
+        { label: t('Sil'), icon: 'trash', danger: true, action: async () => {
+          if (!(await confirmBox(t('Bu antrenman silinsin mi?'), { ok: t('Sil'), danger: true }))) return;
+          deleteSession(s.id); sh.close(); rerender(); toast(t('Silindi'));
         } },
       ]) }, icon('more'))),
   });
 }
 
 function setText(st, type) {
-  if (type === 'cardio') return [st.t != null ? `${num(st.t)} dk` : '', st.d != null ? `${num(st.d)} km` : ''].filter(Boolean).join(' · ');
-  if (type === 'time') return `${st.t ?? '?'} sn`;
+  if (type === 'cardio') return [st.t != null ? `${num(st.t)} ${dk()}` : '', st.d != null ? `${num(st.d)} km` : ''].filter(Boolean).join(' · ');
+  if (type === 'time') return `${st.t ?? '?'} ${sn()}`;
   const r = st.r == null ? '?' : st.x ? `${st.r}+${st.x}` : st.r;
-  if (type === 'bw') return st.w ? `+${num(st.w)} kg × ${r}` : `${r} tekrar`;
+  if (type === 'bw') return st.w ? `+${num(st.w)} kg × ${r}` : t('{r} tekrar', { r });
   return `${st.w != null ? num(st.w) + ' kg' : '?'} × ${r}`;
 }
 
@@ -765,23 +774,23 @@ function copyText(s) {
   const lines = [`${pad(d.getDate())} ${pad(d.getMonth() + 1)} ${String(d.getFullYear()).slice(2)}${s.bodyWeight ? ` (${num(s.bodyWeight)})` : ''}${s.note ? '  ' + s.note : ''}`];
   for (const it of s.items) {
     const e = ex(it.exId);
-    lines.push(`${e.short.toLowerCase()} ${it.skipped ? 'pas' : summarize(it, e.type).replace(/ × /g, 'x')}${it.note ? '  ' + it.note : ''}`);
+    lines.push(`${e.short.toLowerCase()} ${it.skipped ? (getLang() === 'en' ? 'skip' : 'pas') : summarize(it, e.type).replace(/ × /g, 'x')}${it.note ? '  ' + it.note : ''}`);
   }
-  navigator.clipboard?.writeText(lines.join('\n')).then(() => toast('Panoya kopyalandı'), () => toast('Kopyalanamadı'));
+  navigator.clipboard?.writeText(lines.join('\n')).then(() => toast(t('Panoya kopyalandı')), () => toast(t('Kopyalanamadı')));
 }
 
 function editSession(id) {
   const doc = clone(getSession(id));
   const sh = sheet({
-    title: 'Antrenmanı düzenle', full: true,
+    title: t('Antrenmanı düzenle'), full: true,
     body: Editor(doc, { mode: 'session' }),
     footer: h('div.row.gap', null,
-      h('button.btn.ghost.grow', { onclick: () => sh.close() }, 'Vazgeç'),
+      h('button.btn.ghost.grow', { onclick: () => sh.close() }, t('Vazgeç')),
       h('button.btn.primary.grow', { onclick: () => {
         const s = finalize(doc);
-        if (!s.items.length && !s.bodyWeight) { toast('En az bir hareket olmalı'); return; }
-        upsertSession(s); sh.close(); rerender(); toast('Kaydedildi');
-      } }, 'Kaydet')),
+        if (!s.items.length && !s.bodyWeight) { toast(t('En az bir hareket olmalı')); return; }
+        upsertSession(s); sh.close(); rerender(); toast(t('Kaydedildi'));
+      } }, t('Kaydet'))),
   });
 }
 
@@ -791,48 +800,48 @@ function planFromSession(s) {
   editTemplate(t, true);
 }
 
-function editTemplate(t, isNew = false) {
-  const doc = clone(t || { id: uid(), name: '', groups: [], items: [] });
+function editTemplate(plan, isNew = false) {
+  const doc = clone(plan || { id: uid(), name: '', groups: [], items: [] });
   const sh = sheet({
-    title: isNew || !t ? 'Yeni plan' : 'Planı düzenle', full: true,
-    body: h('div', null, h('p.muted.small.pad-x', null, 'Planı başlattığında her hareket için son yaptığın ağırlıklar otomatik gelir; buradaki setler sadece hiç yapılmamış hareketler için kullanılır.'), Editor(doc, { mode: 'template' })),
+    title: t(isNew || !plan ? 'Yeni plan' : 'Planı düzenle'), full: true,
+    body: h('div', null, h('p.muted.small.pad-x', null, t('Planı başlattığında her hareket için son yaptığın ağırlıklar otomatik gelir; buradaki setler sadece hiç yapılmamış hareketler için kullanılır.')), Editor(doc, { mode: 'template' })),
     footer: h('div.row.gap', null,
-      t && !isNew ? h('button.btn.ghost', { onclick: async () => {
-        if (!(await confirmBox(`“${doc.name}” planı silinsin mi?`, { ok: 'Sil', danger: true }))) return;
-        deleteTemplate(doc.id); sh.close(); rerender(); toast('Plan silindi');
+      plan && !isNew ? h('button.btn.ghost', { onclick: async () => {
+        if (!(await confirmBox(t('“{name}” planı silinsin mi?', { name: doc.name }), { ok: t('Sil'), danger: true }))) return;
+        deleteTemplate(doc.id); sh.close(); rerender(); toast(t('Plan silindi'));
       } }, icon('trash')) : null,
       h('button.btn.primary.grow', { onclick: () => {
-        if (!doc.name?.trim()) { toast('Plana bir ad ver'); return; }
-        if (!doc.items.length) { toast('Plana hareket ekle'); return; }
+        if (!doc.name?.trim()) { toast(t('Plana bir ad ver')); return; }
+        if (!doc.items.length) { toast(t('Plana hareket ekle')); return; }
         doc.name = doc.name.trim();
         doc.items = doc.items.map((it) => ({ exId: it.exId, sets: it.sets.map(cleanSet) }));
-        upsertTemplate(doc); sh.close(); rerender(); toast('Plan kaydedildi');
-      } }, 'Planı kaydet')),
+        upsertTemplate(doc); sh.close(); rerender(); toast(t('Plan kaydedildi'));
+      } }, t('Planı kaydet'))),
   });
 }
 
 function planSuggestions({ afterImport = false } = {}) {
-  const list = suggestPlans().filter((p) => !state.templates.some((t) => similarItems(t, p.session)));
-  if (!list.length) { if (!afterImport) toast('Önerilecek yeni plan bulunamadı'); return; }
+  const list = suggestPlans().filter((p) => !state.templates.some((tp) => similarItems(tp, p.session)));
+  if (!list.length) { if (!afterImport) toast(t('Önerilecek yeni plan bulunamadı')); return; }
   const picks = list.map((p) => ({ ...p, on: true }));
   const body = h('div', null,
-    h('p.muted', null, afterImport ? 'Notlarında sık tekrarlanan antrenmanları buldum. Plan olarak kaydedersen tek dokunuşla başlatabilirsin.' : 'Geçmişinde sık tekrarlanan antrenmanlar:'),
+    h('p.muted', null, t(afterImport ? 'Notlarında sık tekrarlanan antrenmanları buldum. Plan olarak kaydedersen tek dokunuşla başlatabilirsin.' : 'Geçmişinde sık tekrarlanan antrenmanlar:')),
     h('div.list', null, picks.map((p) => {
       const name = h('input.input', { value: p.name, oninput: (e) => { p.name = e.target.value; } });
       return h('div.card.plan-pick', null,
         h('label.row.gap', null, h('input', { type: 'checkbox', checked: true, onchange: (e) => { p.on = e.target.checked; } }), name),
-        h('p.muted.small', null, `${p.count} kez · ` + p.session.items.filter((i) => !i.skipped).map((i) => ex(i.exId).short).join(' · ')));
+        h('p.muted.small', null, `${t('{n} kez', { n: p.count })} · ` + p.session.items.filter((i) => !i.skipped).map((i) => ex(i.exId).short).join(' · ')));
     })));
   const sh = sheet({
-    title: 'Plan önerileri', body,
+    title: t('Plan önerileri'), body,
     footer: h('div.row.gap', null,
-      h('button.btn.ghost.grow', { onclick: () => sh.close() }, 'Şimdi değil'),
+      h('button.btn.ghost.grow', { onclick: () => sh.close() }, t('Şimdi değil')),
       h('button.btn.primary.grow', { onclick: () => {
         const chosen = picks.filter((p) => p.on);
         for (const p of chosen) upsertTemplate(templateFromSession(p.session, p.name.trim() || undefined));
         sh.close(); rerender();
-        if (chosen.length) toast(`${chosen.length} plan kaydedildi`);
-      } }, 'Seçilenleri kaydet')),
+        if (chosen.length) toast(t('{n} plan kaydedildi', { n: chosen.length }));
+      } }, t('Seçilenleri kaydet'))),
   });
 }
 
@@ -843,16 +852,16 @@ let progMetric = 'w';
 function ProgressView() {
   const page = h('div.page.progress');
   const all = sessions();
-  page.append(pageHead('Gelişim', 'Kilo, güç ve düzen'));
+  page.append(pageHead(t('Gelişim'), t('Kilo, güç ve düzen')));
   if (!all.length && !state.weighIns.length) {
-    page.append(empty('Grafikler için önce birkaç antrenman kaydet ya da eski notlarını içe aktar.', h('button.btn.primary', { onclick: () => importSheet() }, 'Eski notlarımı içe aktar')));
+    page.append(empty(t('Grafikler için önce birkaç antrenman kaydet ya da eski notlarını içe aktar.'), h('button.btn.primary', { onclick: () => importSheet() }, t('Eski notlarımı içe aktar'))));
     return page;
   }
-  const t = today();
-  const year = t.slice(0, 4);
+  const td = today();
+  const year = td.slice(0, 4);
   const yearCount = all.filter((s) => s.date.startsWith(year)).length;
-  const last12 = all.filter((s) => daysBetween(s.date, t) < 84).length;
-  const thisMonth = all.filter((s) => s.date.startsWith(t.slice(0, 7))).length;
+  const last12 = all.filter((s) => daysBetween(s.date, td) < 84).length;
+  const thisMonth = all.filter((s) => s.date.startsWith(td.slice(0, 7))).length;
   const asc = all.slice().reverse();
   let gap = { days: 0 };
   for (let i = 1; i < asc.length; i++) {
@@ -865,27 +874,27 @@ function ProgressView() {
   const firstYear = ws.find((w) => w.date.startsWith(year));
 
   page.append(h('div.hero', null,
-    h('span.muted', null, `${year} yılında`),
+    h('span.muted', null, t('{year} yılında', { year })),
     h('b.hero-num', null, String(yearCount)),
-    h('span', null, 'antrenman'),
-    h('span.muted.small', null, `Son 12 haftada haftalık ortalama ${num(last12 / 12, 1)}`)));
+    h('span', null, t('antrenman', { n: yearCount })),
+    h('span.muted.small', null, t('Son 12 haftada haftalık ortalama {n}', { n: num(last12 / 12, 1) }))));
 
   page.append(h('div.tiles', null,
-    tile('Bu ay', thisMonth),
-    tile('Son antrenman', all[0] ? relDays(all[0].date) : '—'),
-    lw ? tile('Güncel kilo', `${num(lw.kg)} kg`, ref ? `${lw.kg - ref.kg >= 0 ? '+' : ''}${num(lw.kg - ref.kg, 1)} kg son 1 ayda` : null) : null,
-    lw && firstYear && firstYear !== lw ? tile('Yıl başından beri', `${lw.kg - firstYear.kg >= 0 ? '+' : ''}${num(lw.kg - firstYear.kg, 1)} kg`, `${num(firstYear.kg)} → ${num(lw.kg)}`) : null,
-    gap.days > 7 ? tile('En uzun ara', `${gap.days} gün`, `${fmtDate(gap.from)} → ${fmtDate(gap.to)}`) : null));
+    tile(t('Bu ay'), thisMonth),
+    tile(t('Son antrenman'), all[0] ? relDays(all[0].date) : '—'),
+    lw ? tile(t('Güncel kilo'), `${num(lw.kg)} kg`, ref ? t('{d} kg son 1 ayda', { d: `${lw.kg - ref.kg >= 0 ? '+' : ''}${num(lw.kg - ref.kg, 1)}` }) : null) : null,
+    lw && firstYear && firstYear !== lw ? tile(t('Yıl başından beri'), `${lw.kg - firstYear.kg >= 0 ? '+' : ''}${num(lw.kg - firstYear.kg, 1)} kg`, `${num(firstYear.kg)} → ${num(lw.kg)}`) : null,
+    gap.days > 7 ? tile(t('En uzun ara'), t('{n} gün', { n: gap.days }), `${fmtDate(gap.from)} → ${fmtDate(gap.to)}`) : null));
 
   // Kilo grafiği
   if (ws.length) {
     const host = h('div.chart-host');
     const card = h('div.card', null,
-      h('div.card-head', null, h('h2', null, 'Kilo'), segmented([{ id: '3m', name: '3A' }, { id: '6m', name: '6A' }, { id: '1y', name: '1Y' }, { id: 'all', name: 'Tümü' }], weightRange, (v) => { weightRange = v; drawW(); })),
+      h('div.card-head', null, h('h2', null, t('Kilo')), segmented([{ id: '3m', name: t('3A') }, { id: '6m', name: t('6A') }, { id: '1y', name: t('1Y') }, { id: 'all', name: t('Tümü') }], weightRange, (v) => { weightRange = v; drawW(); })),
       host);
     const drawW = () => {
       const days = { '3m': 92, '6m': 183, '1y': 366, all: 99999 }[weightRange];
-      const data = ws.filter((w) => daysBetween(w.date, t) <= days).map((w) => ({ date: w.date, y: w.kg }));
+      const data = ws.filter((w) => daysBetween(w.date, td) <= days).map((w) => ({ date: w.date, y: w.kg }));
       lineChart(host, { data, yFmt: (v) => num(v, 1), unit: ' kg', goal: state.settings.goalWeight });
     };
     page.append(card);
@@ -893,28 +902,28 @@ function ProgressView() {
   }
 
   // Takvim
-  const from = all.length ? (all[all.length - 1].date < `${year}-01-01` ? addDays(t, -364) : `${year}-01-01`) : t;
+  const from = all.length ? (all[all.length - 1].date < `${year}-01-01` ? addDays(td, -364) : `${year}-01-01`) : td;
   const daysMap = new Map();
   for (const s of all) {
     const prev = daysMap.get(s.date);
     const names = s.items.map((it) => ex(it.exId).short).join(', ');
-    daysMap.set(s.date, { level: s.items.length ? 2 : 1, tip: `<b>${fmtDate(s.date, { weekday: true, year: true })}</b><span>${groupLabel(sessionGroups(s)) || 'Spor günü'}</span>${names ? `<span class="tip-small">${names}</span>` : ''}${prev ? '<span>+1 antrenman</span>' : ''}` });
+    daysMap.set(s.date, { level: s.items.length ? 2 : 1, tip: `<b>${fmtDate(s.date, { weekday: true, year: true })}</b><span>${groupLabel(sessionGroups(s)) || t('Spor günü')}</span>${names ? `<span class="tip-small">${names}</span>` : ''}${prev ? `<span>${t('+1 antrenman')}</span>` : ''}` });
   }
   const heatHost = h('div.chart-host');
-  page.append(h('div.card', null, h('div.card-head', null, h('h2', null, 'Spor takvimi'),
-    h('span.legend', null, h('i.l2'), 'antrenman', h('i.l1'), 'sadece kayıt')), heatHost));
-  requestAnimationFrame(() => heatmap(heatHost, { from, to: t, days: daysMap }));
+  page.append(h('div.card', null, h('div.card-head', null, h('h2', null, t('Spor takvimi')),
+    h('span.legend', null, h('i.l2'), t('antrenman'), h('i.l1'), t('sadece kayıt'))), heatHost));
+  requestAnimationFrame(() => heatmap(heatHost, { from, to: td, days: daysMap }));
 
   // Aylık sayılar
   const months = [];
   const start = parseYmd(from);
-  for (let d = new Date(start.getFullYear(), start.getMonth(), 1); d <= parseYmd(t); d.setMonth(d.getMonth() + 1)) {
+  for (let d = new Date(start.getFullYear(), start.getMonth(), 1); d <= parseYmd(td); d.setMonth(d.getMonth() + 1)) {
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     const n = all.filter((s) => s.date.startsWith(key)).length;
-    months.push({ label: MONTHS_SHORT[d.getMonth()], value: n, tip: `<b>${n} antrenman</b><span>${MONTHS[d.getMonth()]} ${d.getFullYear()}</span>` });
+    months.push({ label: monthShort(d.getMonth()), value: n, tip: `<b>${t('{n} antrenman', { n })}</b><span>${monthName(d.getMonth())} ${d.getFullYear()}</span>` });
   }
   const monthHost = h('div.chart-host');
-  page.append(h('div.card', null, h('div.card-head', null, h('h2', null, 'Aylık antrenman sayısı')), monthHost));
+  page.append(h('div.card', null, h('div.card-head', null, h('h2', null, t('Aylık antrenman sayısı'))), monthHost));
   requestAnimationFrame(() => columnChart(monthHost, { data: months.slice(-12) }));
 
   // Hareket gelişimi
@@ -923,21 +932,22 @@ function ProgressView() {
     if (!progEx || !used.some((e) => e.id === progEx)) progEx = (used.find((e) => e.type === 'w') || used[0]).id;
     const exHost = h('div.chart-host');
     const stats = h('div.ex-stats');
-    const select = h('select.input', { 'aria-label': 'Hareket seç', onchange: (e) => { progEx = e.target.value; progMetric = ex(progEx).type === 'w' ? 'w' : 'reps'; drawEx(); paintMetric(); } },
+    const select = h('select.input', { 'aria-label': t('Hareket seç'), onchange: (e) => { progEx = e.target.value; progMetric = ex(progEx).type === 'w' ? 'w' : 'reps'; drawEx(); paintMetric(); } },
       used.map((e) => h('option', { value: e.id, selected: e.id === progEx }, `${e.name} (${exHistory(e.id).length})`)));
     const metricBox = h('div');
     const paintMetric = () => {
       const type = ex(progEx).type;
-      const opts = type === 'w' ? [{ id: 'w', name: 'En ağır' }, { id: 'e1', name: 'Tahmini 1RM' }, { id: 'vol', name: 'Hacim' }]
+      const opts = (type === 'w' ? [{ id: 'w', name: 'En ağır' }, { id: 'e1', name: 'Tahmini 1RM' }, { id: 'vol', name: 'Hacim' }]
         : type === 'cardio' ? [{ id: 'time', name: 'Süre' }, { id: 'dist', name: 'Mesafe' }]
-          : type === 'time' ? [{ id: 'time', name: 'Süre' }] : [{ id: 'reps', name: 'Toplam tekrar' }, { id: 'maxR', name: 'En çok tekrar' }];
+          : type === 'time' ? [{ id: 'time', name: 'Süre' }] : [{ id: 'reps', name: 'Toplam tekrar' }, { id: 'maxR', name: 'En çok tekrar' }])
+        .map((o) => ({ ...o, name: t(o.name) }));
       if (!opts.some((o) => o.id === progMetric)) progMetric = opts[0].id;
       metricBox.replaceChildren(segmented(opts, progMetric, (v) => { progMetric = v; drawEx(); }));
     };
     const drawEx = () => {
       const e = ex(progEx);
       const hist = exHistory(progEx);
-      const unit = { w: ' kg', e1: ' kg', vol: ' kg', time: e.type === 'cardio' ? ' dk' : ' sn', dist: ' km', reps: '', maxR: '' }[progMetric];
+      const unit = { w: ' kg', e1: ' kg', vol: ' kg', time: ' ' + (e.type === 'cardio' ? dk() : sn()), dist: ' km', reps: '', maxR: '' }[progMetric];
       const data = hist.map((x) => {
         const st = itemStats(x.item, e.type);
         const key = { w: 'maxW', e1: 'e1', vol: 'vol', time: 'time', dist: 'dist', reps: 'reps', maxR: 'maxR' }[progMetric];
@@ -948,11 +958,11 @@ function ProgressView() {
       const first = hist[0], last = hist[hist.length - 1];
       const fs = itemStats(first.item, e.type), ls = itemStats(last.item, e.type);
       stats.replaceChildren(
-        e.type === 'w' ? tile('En ağır', `${num(rec.maxW)} kg`, rec.wDate ? fmtDate(rec.wDate) : null) : tile('En çok tekrar', rec.maxR),
-        e.type === 'w' ? tile('Tahmini 1RM', `${num(rec.e1, 1)} kg`) : tile('Kayıt', `${hist.length} kez`),
-        e.type === 'w' && fs.maxW ? tile('İlk → son', `${num(fs.maxW)} → ${num(ls.maxW)}`, `${ls.maxW - fs.maxW >= 0 ? '+' : ''}${num(ls.maxW - fs.maxW)} kg`) : null);
+        e.type === 'w' ? tile(t('En ağır'), `${num(rec.maxW)} kg`, rec.wDate ? fmtDate(rec.wDate) : null) : tile(t('En çok tekrar'), rec.maxR),
+        e.type === 'w' ? tile(t('Tahmini 1RM'), `${num(rec.e1, 1)} kg`) : tile(t('Kayıt'), t('{n} kez', { n: hist.length })),
+        e.type === 'w' && fs.maxW ? tile(t('İlk → son'), `${num(fs.maxW)} → ${num(ls.maxW)}`, `${ls.maxW - fs.maxW >= 0 ? '+' : ''}${num(ls.maxW - fs.maxW)} kg`) : null);
     };
-    page.append(h('div.card', null, h('div.card-head', null, h('h2', null, 'Hareket gelişimi')), select, metricBox, exHost, stats));
+    page.append(h('div.card', null, h('div.card-head', null, h('h2', null, t('Hareket gelişimi'))), select, metricBox, exHost, stats));
     paintMetric();
     requestAnimationFrame(drawEx);
   }
@@ -960,7 +970,7 @@ function ProgressView() {
   // Bölge dağılımı (son 30 gün)
   const counts = new Map();
   for (const s of all) {
-    if (daysBetween(s.date, t) > 30) continue;
+    if (daysBetween(s.date, td) > 30) continue;
     for (const it of s.items) {
       if (it.skipped) continue;
       const g = ex(it.exId).groups[0];
@@ -969,15 +979,15 @@ function ProgressView() {
   }
   const barHost = h('div');
   if (counts.size) {
-    barList(barHost, { data: [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([g, n]) => ({ label: GROUP_NAME[g], value: n, display: `${n} set` })) });
-    page.append(h('div.card', null, h('div.card-head', null, h('h2', null, 'Bölge dağılımı'), h('span.muted.small', null, 'son 30 gün')), barHost));
+    barList(barHost, { data: [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([g, n]) => ({ label: GROUP_NAME[g], value: n, display: t('{n} set', { n }) })) });
+    page.append(h('div.card', null, h('div.card-head', null, h('h2', null, t('Bölge dağılımı')), h('span.muted.small', null, t('son 30 gün'))), barHost));
   }
 
   // Rekorlar
   const prs = exercises().filter((e) => e.type === 'w' && exHistory(e.id).length).map((e) => ({ e, r: records(e.id) }))
     .filter((x) => x.r.maxW).sort((a, b) => usageCount(b.e.id) - usageCount(a.e.id)).slice(0, 12);
   if (prs.length) {
-    page.append(h('div.card', null, h('div.card-head', null, h('h2', null, 'Kişisel rekorlar')),
+    page.append(h('div.card', null, h('div.card-head', null, h('h2', null, t('Kişisel rekorlar'))),
       h('div.pr-table', null, prs.map(({ e, r }) => h('button.pr-line', { onclick: () => exerciseDetail(e.id) },
         h('span.grow', null, e.name), h('b', null, `${num(r.maxW)} kg`), h('span.muted.small', null, r.wDate ? fmtDate(r.wDate) : ''))))));
   }
@@ -989,29 +999,29 @@ let libGroup = '*';
 let libQuery = '';
 function LibraryView(sub) {
   const page = h('div.page');
-  page.append(pageHead('Hareketler', 'Kütüphane ve planlar'));
-  page.append(segmented([{ id: '', name: 'Hareketler' }, { id: 'plans', name: 'Planlar' }], sub === 'plans' ? 'plans' : '', (v) => go(v ? '#/library/plans' : '#/library')));
+  page.append(pageHead(t('Hareketler'), t('Kütüphane ve planlar')));
+  page.append(segmented([{ id: '', name: t('Hareketler') }, { id: 'plans', name: t('Planlar') }], sub === 'plans' ? 'plans' : '', (v) => go(v ? '#/library/plans' : '#/library')));
   if (sub === 'plans') {
     page.append(h('div.row.gap.mt', null,
-      h('button.btn.primary.grow', { onclick: () => editTemplate(null, true) }, icon('plus'), 'Yeni plan'),
-      sessions().length ? h('button.btn.grow', { onclick: () => planSuggestions() }, icon('sparkle'), 'Geçmişten öner') : null));
-    if (!state.templates.length) page.append(empty('Henüz plan yok. Sık yaptığın antrenmanları plan olarak kaydedersen tek dokunuşla başlatırsın.'));
-    page.append(h('div.list.mt', null, state.templates.map((t) => {
-      const done = templateLastDone(t);
+      h('button.btn.primary.grow', { onclick: () => editTemplate(null, true) }, icon('plus'), t('Yeni plan')),
+      sessions().length ? h('button.btn.grow', { onclick: () => planSuggestions() }, icon('sparkle'), t('Geçmişten öner')) : null));
+    if (!state.templates.length) page.append(empty(t('Henüz plan yok. Sık yaptığın antrenmanları plan olarak kaydedersen tek dokunuşla başlatırsın.')));
+    page.append(h('div.list.mt', null, state.templates.map((p) => {
+      const done = templateLastDone(p);
       return h('div.card.plan-card', null,
-        h('div.row.gap', null, h('div.grow', null, h('b', null, t.name), h('div.muted.small', null, `${groupLabel(t.groups)}${done ? ' · son ' + relDays(done) : ''}`)),
-          h('button.icon-btn', { 'aria-label': 'Düzenle', onclick: () => editTemplate(t) }, icon('edit'))),
-        h('div.mini-anims', null, t.items.map((it) => animBox(it.exId, 'xs'))),
-        h('p.muted.small', null, t.items.map((it) => ex(it.exId).short).join(' · ')),
-        h('button.btn.primary.block', { onclick: () => startFromTemplate(t) }, icon('play'), 'Başla'));
+        h('div.row.gap', null, h('div.grow', null, h('b', null, p.name), h('div.muted.small', null, groupLabel(p.groups) + (done ? t(' · son {d}', { d: relDays(done) }) : ''))),
+          h('button.icon-btn', { 'aria-label': t('Düzenle'), onclick: () => editTemplate(p) }, icon('edit'))),
+        h('div.mini-anims', null, p.items.map((it) => animBox(it.exId, 'xs'))),
+        h('p.muted.small', null, p.items.map((it) => ex(it.exId).short).join(' · ')),
+        h('button.btn.primary.block', { onclick: () => startFromTemplate(p) }, icon('play'), t('Başla')));
     })));
     return page;
   }
 
   const listHost = h('div');
-  const search = h('input.input', { type: 'search', placeholder: 'Hareket ara', value: libQuery, oninput: (e) => { libQuery = e.target.value; paint(); } });
-  page.append(h('div.row.gap.mt', null, search, h('button.btn.primary', { onclick: () => exerciseForm(null, { groups: libGroup === '*' ? [] : [libGroup] }) }, icon('plus'), 'Yeni')));
-  page.append(chips([{ id: '*', name: 'Tümü' }, ...GROUPS], [libGroup], (v) => { libGroup = v[0]; paint(); }, { multi: false, className: 'scroll-x' }));
+  const search = h('input.input', { type: 'search', placeholder: t('Hareket ara'), value: libQuery, oninput: (e) => { libQuery = e.target.value; paint(); } });
+  page.append(h('div.row.gap.mt', null, search, h('button.btn.primary', { onclick: () => exerciseForm(null, { groups: libGroup === '*' ? [] : [libGroup] }) }, icon('plus'), t('Yeni'))));
+  page.append(chips([{ id: '*', name: t('Tümü') }, ...GROUPS], [libGroup], (v) => { libGroup = v[0]; paint(); }, { multi: false, className: 'scroll-x' }));
   page.append(listHost);
   function paint() {
     const nq = norm(libQuery);
@@ -1020,13 +1030,13 @@ function LibraryView(sub) {
     const groups = libGroup === '*' ? GROUPS : GROUPS.filter((g) => g.id === libGroup);
     const out = [];
     for (const g of groups) {
-      const items = list.filter((e) => !e.hidden && e.groups[0] === g.id).sort((a, b) => usageCount(b.id) - usageCount(a.id) || a.name.localeCompare(b.name, 'tr'));
+      const items = list.filter((e) => !e.hidden && e.groups[0] === g.id).sort((a, b) => usageCount(b.id) - usageCount(a.id) || a.name.localeCompare(b.name, getLang()));
       if (!items.length) continue;
       out.push(h('h2.section-title', null, g.name), h('div.ex-grid', null, items.map(exTile)));
     }
     const hidden = list.filter((e) => e.hidden);
-    if (hidden.length) out.push(h('details.hidden-ex', null, h('summary', null, `Gizlenen hareketler (${hidden.length})`), h('div.ex-grid', null, hidden.map(exTile))));
-    if (!out.length) out.push(h('p.muted.center.pad', null, 'Bulunamadı.'));
+    if (hidden.length) out.push(h('details.hidden-ex', null, h('summary', null, t('Gizlenen hareketler ({n})', { n: hidden.length })), h('div.ex-grid', null, hidden.map(exTile))));
+    if (!out.length) out.push(h('p.muted.center.pad', null, t('Bulunamadı.')));
     listHost.replaceChildren(...out);
   }
   paint();
@@ -1038,39 +1048,47 @@ function exTile(e) {
   return h('button.ex-tile', { onclick: () => exerciseDetail(e.id) },
     animBox(e.id, 'md'),
     h('b', null, e.name),
-    h('span.muted.small', null, e.short + (n ? ` · ${n}×` : '') + (e.custom ? ' · senin' : '')));
+    h('span.muted.small', null, e.short + (n ? ` · ${n}×` : '') + (e.custom ? t(' · senin') : '')));
 }
 
 // ---------- Ayarlar ----------
 function SettingsView() {
   const page = h('div.page');
-  page.append(pageHead('Ayarlar'));
+  page.append(pageHead(t('Ayarlar')));
   if (DEMO) page.append(demoBanner());
   const lb = state.settings.lastBackup;
-  page.append(section('Veriler',
+  page.append(section(t('Veriler'),
     h('div.list', null,
-      settingRow('file', 'Eski notlarımı içe aktar', 'Telefondaki metin notlarını yapıştır, antrenmanlara çevireyim.', () => importSheet()),
-      settingRow('download', 'Yedeği indir', lb ? `Son yedek: ${relDays(lb)}` : 'Henüz yedek alınmadı. Verilerin sadece bu cihazda.', exportBackup),
-      settingRow('upload', 'Yedekten geri yükle', 'Daha önce indirdiğin .json dosyasını seç.', importBackup),
-      sessions().length ? settingRow('sparkle', 'Geçmişten plan öner', 'Sık tekrarladığın antrenmanları plan yap.', () => planSuggestions()) : null)));
+      settingRow('file', t('Eski notlarımı içe aktar'), t('Telefondaki metin notlarını yapıştır, antrenmanlara çevireyim.'), () => importSheet()),
+      settingRow('download', t('Yedeği indir'), lb ? t('Son yedek: {d}', { d: relDays(lb) }) : t('Henüz yedek alınmadı. Verilerin sadece bu cihazda.'), exportBackup),
+      settingRow('upload', t('Yedekten geri yükle'), t('Daha önce indirdiğin .json dosyasını seç.'), importBackup),
+      sessions().length ? settingRow('sparkle', t('Geçmişten plan öner'), t('Sık tekrarladığın antrenmanları plan yap.'), () => planSuggestions()) : null)));
 
-  const goal = h('input.input.w-kg', { inputmode: 'decimal', value: state.settings.goalWeight ?? '', placeholder: 'kg', onchange: (e) => { state.settings.goalWeight = parseNum(e.target.value); commit(); toast('Hedef kaydedildi'); } });
-  page.append(section('Tercihler', h('div.card', null,
-    h('div.row.gap.between', null, h('div', null, h('b', null, 'Hedef kilo'), h('p.muted.small', null, 'Kilo grafiğinde çizgi olarak görünür.')), goal),
-    h('div.field.mt', null, h('span', null, 'Tema'), segmented([{ id: 'auto', name: 'Otomatik' }, { id: 'dark', name: 'Koyu' }, { id: 'light', name: 'Açık' }], state.settings.theme, (v) => { state.settings.theme = v; commit(); applyTheme(); })))));
+  const goal = h('input.input.w-kg', { inputmode: 'decimal', value: state.settings.goalWeight ?? '', placeholder: 'kg', onchange: (e) => { state.settings.goalWeight = parseNum(e.target.value); commit(); toast(t('Hedef kaydedildi')); } });
+  page.append(section(t('Tercihler'), h('div.card', null,
+    h('div.field', null, h('span', null, getLang() === 'en' ? 'Language · Dil' : 'Dil · Language'),
+      segmented([{ id: 'auto', name: t('Otomatik') }, { id: 'tr', name: 'Türkçe' }, { id: 'en', name: 'English' }], state.settings.lang || 'auto', (v) => {
+        state.settings.lang = v;
+        commit();
+        setLang(v);
+        buildNav();
+        rerender();
+      })),
+    h('div.row.gap.between.mt', null, h('div', null, h('b', null, t('Hedef kilo')), h('p.muted.small', null, t('Kilo grafiğinde çizgi olarak görünür.'))), goal),
+    h('div.field.mt', null, h('span', null, t('Tema')), segmented([{ id: 'auto', name: t('Otomatik') }, { id: 'dark', name: t('Koyu') }, { id: 'light', name: t('Açık') }], state.settings.theme, (v) => { state.settings.theme = v; commit(); applyTheme(); })))));
 
-  page.append(section('Tehlikeli bölge', h('div.list', null,
-    settingRow('trash', 'Tüm verileri sil', 'Antrenmanlar, planlar ve kendi hareketlerin silinir.', async () => {
-      if (!(await confirmBox('Tüm veriler silinsin mi? Bu geri alınamaz. Önce yedek almanı öneririm.', { ok: 'Hepsini sil', danger: true }))) return;
-      replaceState({});
+  page.append(section(t('Tehlikeli bölge'), h('div.list', null,
+    settingRow('trash', t('Tüm verileri sil'), t('Antrenmanlar, planlar ve kendi hareketlerin silinir.'), async () => {
+      if (!(await confirmBox(t('Tüm veriler silinsin mi? Bu geri alınamaz. Önce yedek almanı öneririm.'), { ok: t('Hepsini sil'), danger: true }))) return;
+      replaceState({ settings: { lang: state.settings.lang, theme: state.settings.theme } });
       rerender();
-      toast('Tüm veriler silindi');
+      toast(t('Tüm veriler silindi'));
     }, true))));
 
   page.append(h('div.about', null,
-    h('p', null, h('b', null, 'GymLog'), ' · spor defteri'),
-    h('p.muted.small', null, 'Veriler sadece bu cihazda (tarayıcıda) saklanır; hiçbir sunucuya gönderilmez. Telefonu değiştirmeden ya da tarayıcı verisini silmeden önce yedek al.'),
-    h('p.small', null, h('a', { href: REPO_URL, target: '_blank', rel: 'noopener' }, icon('github'), 'GitHub'), ' · ', DEMO ? h('a', { href: './' }, 'Demodan çık') : h('a', { href: '?demo' }, 'Demoyu aç'))));
+    h('p', null, h('b', null, 'GymLog'), t(' · spor defteri')),
+    h('p.muted.small', null, t('Veriler sadece bu cihazda (tarayıcıda) saklanır; hiçbir sunucuya gönderilmez. Telefonu değiştirmeden ya da tarayıcı verisini silmeden önce yedek al.')),
+    h('p.small', null, h('a', { href: REPO_URL, target: '_blank', rel: 'noopener' }, icon('github'), 'GitHub'), ' · ', DEMO ? h('a', { href: './' }, t('Demodan çık')) : h('a', { href: '?demo' }, t('Demoyu aç')))));
   return page;
 }
 
@@ -1080,11 +1098,11 @@ function settingRow(ic, title, desc, onclick, danger = false) {
 
 function exportBackup() {
   const data = JSON.stringify({ app: 'gymlog', version: 1, exportedAt: new Date().toISOString(), data: { ...state, draft: state.draft } }, null, 1);
-  const name = `gymlog-yedek-${today()}.json`;
+  const name = `gymlog-${t('yedek')}-${today()}.json`;
   const file = new File([data], name, { type: 'application/json' });
   const finish = () => { state.settings.lastBackup = today(); commit(); rerender(); };
   if (navigator.canShare?.({ files: [file] }) && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
-    navigator.share({ files: [file], title: 'GymLog yedeği' }).then(finish).catch(() => {});
+    navigator.share({ files: [file], title: t('GymLog yedeği') }).then(finish).catch(() => {});
     return;
   }
   const a = h('a', { href: URL.createObjectURL(file), download: name });
@@ -1092,7 +1110,7 @@ function exportBackup() {
   a.click();
   a.remove();
   finish();
-  toast('Yedek indirildi');
+  toast(t('Yedek indirildi'));
 }
 
 function importBackup() {
@@ -1104,14 +1122,16 @@ function importBackup() {
       const json = JSON.parse(await f.text());
       const data = json.data || json;
       if (!Array.isArray(data.sessions)) throw new Error('format');
-      const ok = await confirmBox(`Yedekte ${data.sessions.length} antrenman var. Mevcut verilerin yerine yüklensin mi?`, { ok: 'Geri yükle', danger: true });
+      const ok = await confirmBox(t('Yedekte {n} antrenman var. Mevcut verilerin yerine yüklensin mi?', { n: data.sessions.length }), { ok: t('Geri yükle'), danger: true });
       if (!ok) return;
       replaceState(data);
+      setLang(state.settings.lang);
+      buildNav();
       applyTheme();
       rerender();
-      toast('Yedek geri yüklendi');
+      toast(t('Yedek geri yüklendi'));
     } catch {
-      toast('Bu dosya bir GymLog yedeği değil');
+      toast(t('Bu dosya bir GymLog yedeği değil'));
     }
   });
   input.click();
@@ -1119,24 +1139,24 @@ function importBackup() {
 
 // ---------- Eski notları içe aktarma ----------
 function importSheet() {
-  const area = h('textarea.input.mono', { rows: 12, placeholder: '02 01 26 (80.9)\nbarfix 5\nlpd 54 54 54 12 12 10+2\nsr 50x12 x3\nhammer 15x10 x3  keyifsizim\n\n05 01 26 (80.3)\ndp 22.5x12 x4\nd rise 7.5 x12 x5' });
-  const sh = sheet({ title: 'Eski notlarımı içe aktar', full: true });
+  const area = h('textarea.input.mono', { rows: 12, placeholder: '02 01 26 (80.9)\nbarfix 5\nlpd 54 54 54 12 12 10+2\nsr 50x12 x3\nhammer 15x10 x3  ' + t('keyifsizim') + '\n\n05 01 26 (80.3)\ndp 22.5x12 x4\nd rise 7.5 x12 x5' });
+  const sh = sheet({ title: t('Eski notlarımı içe aktar'), full: true });
   const step1 = () => {
     sh.setBody(h('div.form', null,
-      h('p', null, 'Telefondaki not dosyanı olduğu gibi kopyalayıp aşağıya yapıştır. Tarih satırları (', h('code', null, '02 01 26 (80.9)'), ') yeni antrenman başlatır; altındaki satırlar hareket, ağırlık, tekrar ve set olarak okunur.'),
+      h('p', null, t('Telefondaki not dosyanı olduğu gibi kopyalayıp aşağıya yapıştır. Tarih satırları ('), h('code', null, '02 01 26 (80.9)'), t(') yeni antrenman başlatır; altındaki satırlar hareket, ağırlık, tekrar ve set olarak okunur.')),
       h('ul.muted.small.help', null,
-        h('li', null, h('code', null, '50x12 x3'), ' → 50 kg, 12 tekrar, 3 set'),
-        h('li', null, h('code', null, '68 68 73  10 10 7(+3)'), ' → set set ağırlık ve tekrar, (+3) yardımlı tekrar'),
-        h('li', null, h('code', null, '4x10 55 60 60 60'), ' → 4 set 10 tekrar, ağırlıklar sırayla'),
-        h('li', null, h('code', null, 'pass'), ', ', h('code', null, 'skip'), ' → pas geçildi; diğer kelimeler not olur')),
+        h('li', null, h('code', null, '50x12 x3'), t(' → 50 kg, 12 tekrar, 3 set')),
+        h('li', null, h('code', null, '68 68 73  10 10 7(+3)'), t(' → set set ağırlık ve tekrar, (+3) yardımlı tekrar')),
+        h('li', null, h('code', null, '4x10 55 60 60 60'), t(' → 4 set 10 tekrar, ağırlıklar sırayla')),
+        h('li', null, h('code', null, 'pass'), ', ', h('code', null, 'skip'), t(' → pas geçildi; diğer kelimeler not olur'))),
       area,
-      h('p.muted.small', null, 'Hiçbir şey internete gönderilmez; okuma bu cihazda yapılır.')));
+      h('p.muted.small', null, t('Hiçbir şey internete gönderilmez; okuma bu cihazda yapılır.'))));
     sh.setFooter(h('button.btn.primary.block', { onclick: () => {
-      if (!area.value.trim()) { toast('Önce notlarını yapıştır'); return; }
+      if (!area.value.trim()) { toast(t('Önce notlarını yapıştır')); return; }
       const parsed = parseNotes(area.value);
-      if (!parsed.length) { toast('Tarih satırı bulunamadı (ör. 02 01 26)'); return; }
+      if (!parsed.length) { toast(t('Tarih satırı bulunamadı (ör. 02 01 26)')); return; }
       step2(parsed);
-    } }, 'Önizle'));
+    } }, t('Önizle')));
   };
   const step2 = (parsed) => {
     for (const p of parsed) if (p.suggest) { p.origDate = p.date; p.date = p.suggest; }
@@ -1145,36 +1165,36 @@ function importSheet() {
     const exCount = new Set(parsed.flatMap((p) => p.items.map((i) => i.exId))).size;
     let mode = state.sessions.length ? 'add' : 'replace';
     const body = h('div.form');
-    body.append(h('div.tiles', null, tile('Antrenman', parsed.length), tile('Hareket türü', exCount), tile('Kilo kaydı', parsed.filter((p) => p.bodyWeight).length)));
-    if (warn.length) body.append(h('div.banner.warn', null, icon('info'), h('span', null, `${warn.length} tarih sıraya uymuyor (muhtemelen yazım hatası). Tahmini tarihleri yazdım, aşağıdan düzeltebilirsin.`)));
-    if (checks) body.append(h('p.muted.small', null, `⚠ işaretli ${checks} satırı kontrol etmek isteyebilirsin; içe aktardıktan sonra da düzenleyebilirsin.`));
+    body.append(h('div.tiles', null, tile(t('Antrenman sayısı'), parsed.length), tile(t('Hareket türü'), exCount), tile(t('Kilo kaydı'), parsed.filter((p) => p.bodyWeight).length)));
+    if (warn.length) body.append(h('div.banner.warn', null, icon('info'), h('span', null, t('{n} tarih sıraya uymuyor (muhtemelen yazım hatası). Tahmini tarihleri yazdım, aşağıdan düzeltebilirsin.', { n: warn.length }))));
+    if (checks) body.append(h('p.muted.small', null, t('⚠ işaretli {n} satırı kontrol etmek isteyebilirsin; içe aktardıktan sonra da düzenleyebilirsin.', { n: checks })));
     if (state.sessions.length) {
-      body.append(h('div.field', null, h('span', null, `Uygulamada zaten ${state.sessions.length} antrenman var`),
-        segmented([{ id: 'add', name: 'Üstüne ekle' }, { id: 'replace', name: 'Yerine koy' }], mode, (v) => { mode = v; })));
+      body.append(h('div.field', null, h('span', null, t('Uygulamada zaten {n} antrenman var', { n: state.sessions.length })),
+        segmented([{ id: 'add', name: t('Üstüne ekle') }, { id: 'replace', name: t('Yerine koy') }], mode, (v) => { mode = v; })));
     }
     body.append(h('div.list', null, parsed.slice().reverse().map((p) => {
       const dateIn = h('input.input.sm', { type: 'date', value: p.date, onchange: (e) => { p.date = e.target.value; } });
       return h('div.card.import-card' + (p.origDate ? '.warn' : ''), null,
         h('div.row.gap.between', null,
-          p.origDate ? h('div.grow', null, dateIn, h('div.muted.small', null, `Notta: ${fmtDate(p.origDate, { year: true })}`)) : h('b.grow', null, fmtDate(p.date, { weekday: true, year: true })),
+          p.origDate ? h('div.grow', null, dateIn, h('div.muted.small', null, t('Notta: {d}', { d: fmtDate(p.origDate, { year: true }) }))) : h('b.grow', null, fmtDate(p.date, { weekday: true, year: true })),
           p.bodyWeight ? h('span.chip', null, `${num(p.bodyWeight)} kg`) : null),
         p.items.length ? h('div.lines', null, p.items.map((it) => {
           const e = ex(it.exId);
-          return h('div.line' + (it.skipped ? '.skipped' : ''), { title: it.raw }, h('b', null, e.short), h('span', null, it.skipped && !it.sets.length ? 'pas' : summarize(it, e.type) + (it.skipped ? ' (pas)' : '')), it.check ? h('span.warn-ic', { title: `Notta: ${it.raw}` }, '⚠') : null, it.note ? h('span.muted.small', null, it.note) : null);
+          return h('div.line' + (it.skipped ? '.skipped' : ''), { title: it.raw }, h('b', null, e.short), h('span', null, it.skipped && !it.sets.length ? t('pas') : summarize(it, e.type) + (it.skipped ? t(' (pas)') : '')), it.check ? h('span.warn-ic', { title: t('Notta: {d}', { d: it.raw }) }, '⚠') : null, it.note ? h('span.muted.small', null, it.note) : null);
         })) : null,
         p.note ? h('p.session-note', null, p.note) : null);
     })));
     sh.setBody(body);
     sh.el.querySelector('.sheet-body').scrollTop = 0;
     sh.setFooter(h('div.row.gap', null,
-      h('button.btn.ghost', { onclick: step1 }, 'Geri'),
+      h('button.btn.ghost', { onclick: step1 }, t('Geri')),
       h('button.btn.primary.grow', { onclick: () => {
         const n = applyImport(parsed, mode);
         sh.close();
         go('#/history');
-        toast(`${n} antrenman içe aktarıldı`);
+        toast(t('{n} antrenman içe aktarıldı', { n }));
         if (!state.templates.length) setTimeout(() => planSuggestions({ afterImport: true }), 400);
-      } }, `İçe aktar (${parsed.length})`)));
+      } }, t('İçe aktar ({n})', { n: parsed.length }))));
   };
   step1();
 }

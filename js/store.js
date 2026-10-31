@@ -1,6 +1,7 @@
 // Veriler sadece bu cihazda (localStorage) tutulur. Demo modu ayrı bir anahtar kullanır.
 import { BUILTIN, GROUP_NAME } from './exercises.js';
 import { num, daysBetween } from './format.js';
+import { getLang, t } from './i18n.js';
 
 export const DEMO = new URLSearchParams(location.search).has('demo');
 const KEY = DEMO ? 'gymlog.demo.v1' : 'gymlog.v1';
@@ -14,7 +15,7 @@ function blank() {
     customEx: [],   // kullanıcının eklediği hareketler
     exEdits: {},    // hazır hareketlerde yapılan değişiklikler { id: { name, short, ... , hidden } }
     draft: null,    // devam eden antrenman
-    settings: { goalWeight: null, theme: 'auto', lastBackup: null },
+    settings: { goalWeight: null, theme: 'auto', lang: 'auto', lastBackup: null },
   };
 }
 
@@ -71,15 +72,23 @@ export const uid = () => Date.now().toString(36) + Math.random().toString(36).sl
 export const clone = (o) => JSON.parse(JSON.stringify(o));
 
 // ---------- Hareketler ----------
+// Hazır hareketler seçili dilde gelir; diğer dildeki adı da aramada ve içe aktarmada eşleşsin diye takma adlara eklenir.
+function localize(e) {
+  const en = getLang() === 'en';
+  const name = en ? e.nameEn || e.name : e.name;
+  const short = en ? e.shortEn || e.short : e.short;
+  const other = [e.name, e.nameEn, e.short, e.shortEn].filter((x) => x && x !== name && x !== short);
+  return { ...e, name, short, tip: en ? e.tipEn || e.tip : e.tip, aliases: [...new Set([...(e.aliases || []), ...other])] };
+}
 export function exercises() {
-  return cached('ex', () => {
-    const list = BUILTIN.map((e) => ({ ...e, ...(state.exEdits[e.id] || {}), builtin: true }));
+  return cached('ex:' + getLang(), () => {
+    const list = BUILTIN.map((e) => ({ ...localize(e), ...(state.exEdits[e.id] || {}), builtin: true }));
     for (const e of state.customEx) list.push({ ...e, custom: true });
     return list;
   });
 }
 function exMap() {
-  return cached('exMap', () => new Map(exercises().map((e) => [e.id, e])));
+  return cached('exMap:' + getLang(), () => new Map(exercises().map((e) => [e.id, e])));
 }
 export function ex(id) {
   return exMap().get(id) || { id, name: id, short: id, groups: [], type: 'w', anim: 'dbCurl', aliases: [], missing: true };
@@ -296,13 +305,13 @@ export function suggestPlans() {
     .filter((c) => c.count >= 2)
     .sort((a, b) => b.count - a.count)
     .slice(0, 4)
-    .map((c) => ({ session: c.rep, count: c.count, name: groupLabel(sessionGroups(c.rep)).replace(/ · /g, ' + ') || 'Antrenman' }));
+    .map((c) => ({ session: c.rep, count: c.count, name: groupLabel(sessionGroups(c.rep)).replace(/ · /g, ' + ') || t('Antrenman') }));
 }
 
 export function templateFromSession(s, name) {
   return {
     id: uid(),
-    name: name || groupLabel(sessionGroups(s)).replace(/ · /g, ' + ') || 'Antrenman',
+    name: name || groupLabel(sessionGroups(s)).replace(/ · /g, ' + ') || t('Antrenman'),
     groups: sessionGroups(s),
     items: s.items.filter((it) => !it.skipped).map((it) => ({ exId: it.exId, sets: clone(it.sets).map(({ w, r, t, d }) => ({ w, r, t, d })) })),
   };

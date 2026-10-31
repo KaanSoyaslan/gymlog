@@ -1,9 +1,24 @@
-// Tarih ve sayı biçimleri (Türkçe). Tarihler her yerde yerel 'YYYY-AA-GG' metni olarak tutulur.
+// Tarih ve sayı biçimleri (Türkçe / İngilizce). Tarihler her yerde yerel 'YYYY-AA-GG' metni olarak tutulur.
+import { getLang } from './i18n.js';
 
-export const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
-export const MONTHS_SHORT = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-export const DAYS = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
-export const DAYS_LONG = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+const NAMES = {
+  tr: {
+    months: ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'],
+    monthsShort: ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'],
+    days: ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'],
+    daysLong: ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'],
+  },
+  en: {
+    months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+    monthsShort: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+    days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+    daysLong: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+  },
+};
+const names = () => NAMES[getLang()] || NAMES.tr;
+export const monthName = (i) => names().months[i];
+export const monthShort = (i) => names().monthsShort[i];
+export const dayShort = (i) => names().days[i];
 
 const pad = (n) => String(n).padStart(2, '0');
 export const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -26,22 +41,25 @@ export function weekStart(s) {
 export function fmtDate(s, { weekday = false, year = 'auto', long = false } = {}) {
   if (!s) return '';
   const d = parseYmd(s);
+  const n = names();
   const showYear = year === true || (year === 'auto' && d.getFullYear() !== new Date().getFullYear());
-  const m = long ? MONTHS[d.getMonth()] : MONTHS_SHORT[d.getMonth()];
+  const m = long ? n.months[d.getMonth()] : n.monthsShort[d.getMonth()];
   let out = `${d.getDate()} ${m}${showYear ? ' ' + d.getFullYear() : ''}`;
-  if (weekday) out = `${(long ? DAYS_LONG : DAYS)[d.getDay()]}, ${out}`;
+  if (weekday) out = `${(long ? n.daysLong : n.days)[d.getDay()]}, ${out}`;
   return out;
 }
 
 export function relDays(s) {
   const n = daysBetween(s, today());
-  if (n === 0) return 'bugün';
-  if (n === 1) return 'dün';
-  if (n === -1) return 'yarın';
-  if (n < 0) return `${-n} gün sonra`;
-  if (n < 14) return `${n} gün önce`;
-  if (n < 60) return `${Math.round(n / 7)} hafta önce`;
-  return `${Math.round(n / 30)} ay önce`;
+  const en = getLang() === 'en';
+  if (n === 0) return en ? 'today' : 'bugün';
+  if (n === 1) return en ? 'yesterday' : 'dün';
+  if (n === -1) return en ? 'tomorrow' : 'yarın';
+  if (n < 0) return en ? `in ${-n} days` : `${-n} gün sonra`;
+  if (n < 14) return en ? `${n} days ago` : `${n} gün önce`;
+  if (n < 60) { const w = Math.round(n / 7); return en ? `${w} weeks ago` : `${w} hafta önce`; }
+  const mo = Math.round(n / 30);
+  return en ? `${mo} month${mo === 1 ? '' : 's'} ago` : `${mo} ay önce`;
 }
 
 // 22.5 → "22.5", 80 → "80", 17.25 → "17.25"
@@ -58,5 +76,4 @@ export function parseNum(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-export const compact = (n) => (n >= 10000 ? `${num(n / 1000, 1)}B` : String(Math.round(n)));
-export const plural = (n, word) => `${n} ${word}`;
+export const compact = (n) => (n >= 10000 ? `${num(n / 1000, 1)}${getLang() === 'en' ? 'k' : 'B'}` : String(Math.round(n)));
