@@ -19,7 +19,7 @@
 
 <p align="center">
   <img src="docs/screenshots/home.jpg" alt="Workout tab: this week's goal with training days, the suggested next plan and saved plans" width="200">
-  <img src="docs/screenshots/workout.jpg" alt="Logging a workout: ticked sets, last time's numbers, the workout clock and the rest timer counting down" width="200">
+  <img src="docs/screenshots/workout.jpg" alt="Logging a workout: weight, reps with −/+ buttons and drop reps per set, ticked sets, the hype button and the rest timer counting down" width="200">
   <img src="docs/screenshots/history.jpg" alt="History: workouts grouped by month in the same short format as the old notes" width="200">
 </p>
 <p align="center">
@@ -34,24 +34,25 @@ GymLog started as a plain text file on a phone: a date with the body weight in b
 
 GymLog keeps that speed and adds the rest. Start a workout by copying a previous one or a saved plan, tick off your sets while the rest timer runs, take the suggested weight when you are ready to go up, and save. Every exercise has a small animation, so abbreviations like `LPD` or `D Rise` turn into something you can recognise. Your old notes can be pasted in once and are converted automatically.
 
-It is a progressive web app (PWA): it runs in the phone's browser, can be installed to the home screen and works offline at the gym. There is no server and no account; everything is stored on your device. The interface is available in English and Turkish, and it is built to feel good to use: screens slide in, buttons ripple, and the phone vibrates when you complete a set.
+It is a progressive web app (PWA): it runs in the phone's browser, can be installed to the home screen and works offline at the gym. There is no server and no account; everything is stored on your device. The interface is available in English and Turkish, in dark or light mode with seven accent colours (neon, pink, purple, blue, teal, orange, gold), and it is built to feel good to use: screens slide in, buttons ripple, and the phone vibrates when you complete a set.
 
 ## Features
 
 **Logging**
 - Pick the muscle groups for the day (chest, back, shoulders, biceps, triceps, legs, core, cardio) and choose exercises from those groups, or search by name or abbreviation.
-- Per set: weight, reps (type them or use the −1/+1 buttons) and assisted/partial reps (`7+3`). Bodyweight, timed and cardio exercises have their own fields.
+- Per set: weight, reps (type them or use the −/+ buttons) and drop reps: the extra reps you squeeze out after dropping the weight at the end of a set (`12+4`). Every box is labelled (KG, REPS, DROP). Bodyweight, timed and cardio exercises have their own fields.
 - Last time's numbers appear on every exercise and as placeholders in the inputs. A new record is highlighted while you type.
 - Change the first set's weight and the following sets with the same weight update too.
 - Swap an exercise for another one from the same group, reorder, skip ("pas geç") or add a note to a single exercise (for example "machine was broken").
 - A general note and a quick "how was it?" rating for the whole workout. The draft is saved continuously, so closing the browser loses nothing.
 
 **In the gym**
-- Tick off each set as you go. Ticking an empty set fills in last time's numbers.
+- Tick off each set as you go. Ticking an empty set fills in last time's numbers. Deleting a set asks first, so a slip of the finger next to the tick cannot remove it.
 - A rest timer starts automatically, with vibration and a sound when it ends. The default (60 s to 3 min) can be set globally and per exercise, and −15/+15 buttons adjust it on the fly.
 - The screen stays on during a workout, and a clock shows how long you have been training. The duration is saved with the workout.
 - Supersets: link an exercise with the next one. Ticking a set jumps to the next exercise in the superset; the rest timer starts after the last one.
 - Machine setup notes (for example "seat 4, chest pad 2") are shown on the exercise every time.
+- Hype sounds (off by default, turn on in Settings): a 📣 button on the workout screen plays a random gym line before your set, such as Ronnie Coleman's "Yeah buddy!" and "Light weight baby!", David Goggins' "Stay hard!" or "We go jim!", with meme effects like an air horn, vine boom and bass drop. Hold the button for the full soundboard and star your favourites.
 
 **Progression**
 - Weight suggestions: if you finished every set last time, GymLog offers the next weight with one tap. It picks the next weight you have actually used on that exercise (so it matches the machine's weight stack), otherwise it adds your usual step.
@@ -88,7 +89,7 @@ It is a progressive web app (PWA): it runs in the phone's browser, can be instal
 3. On the **Workout** tab, start from a plan, copy a previous workout or start an empty one.
 4. Take a backup now and then (**Settings → Download backup**). You can restore it on another phone.
 
-The app opens in your phone's language (English or Turkish); you can switch it any time under **Settings → Language**.
+The app opens in your phone's language (English or Turkish); you can switch it any time under **Settings → Language**. Theme and accent colour are under **Settings → Preferences** too.
 
 ## Privacy
 
@@ -119,6 +120,7 @@ Then open <http://localhost:8080>. Add `?demo` (<http://localhost:8080/?demo>) t
 | `js/timer.js` | Rest timer and keeping the screen on during a workout |
 | `js/bodymap.js` | Front and back muscle map |
 | `js/juice.js` | Haptics, ripples, confetti, count-up numbers and sounds |
+| `js/hype.js` | Hype sounds: lines spoken with the phone's voice and effects synthesised with the Web Audio API |
 | `js/ui.js` | Small UI helpers: elements, bottom sheets, dialogs, toasts, icons |
 | `js/i18n.js` | English and Turkish interface texts, with automatic language detection |
 | `js/format.js` | Date and number formatting in both languages |
@@ -131,6 +133,7 @@ It is built with plain HTML, CSS and JavaScript, with no framework, no dependenc
 
 - Data lives in one browser on one device. Use the backup file to move it to another phone; there is no automatic sync.
 - The rest timer runs while the screen is on. A web app cannot show a timer on the lock screen.
+- Hype sounds contain no recordings. The lines are read by the phone's own text-to-speech voice, so they sound like a robot doing an impression, and the effects are generated on the device. On an iPhone, sounds are muted when the silent switch is on.
 - The import is tuned for the "exercise weight x reps x sets" style of notes. Unusual lines are kept as notes and marked for review instead of being guessed.
 
 ---
@@ -146,7 +149,7 @@ It is built with plain HTML, CSS and JavaScript, with no framework, no dependenc
 
 <p align="center">
   <img src="docs/screenshots/tr-home.jpg" alt="Antrenman sekmesi: haftalık hedef ve antrenman günleri, sıradaki plan ve kayıtlı planlar" width="200">
-  <img src="docs/screenshots/tr-workout.jpg" alt="Antrenman kaydı: tamamlanan setler, geçen seferki rakamlar, antrenman süresi ve geri sayan dinlenme sayacı" width="200">
+  <img src="docs/screenshots/tr-workout.jpg" alt="Antrenman kaydı: set set ağırlık, −/+ düğmeli tekrar ve drop tekrarı, tamamlanan setler, motivasyon düğmesi ve geri sayan dinlenme sayacı" width="200">
   <img src="docs/screenshots/tr-progress.jpg" alt="Gelişim: 12 haftalık grafikle haftalık hedef ve son 7 günün kas haritası" width="200">
 </p>
 
@@ -156,24 +159,25 @@ GymLog, telefondaki düz bir metin dosyasından doğdu: parantez içinde kiloyla
 
 GymLog bu hızı korur, eksikleri tamamlar. Antrenmana önceki bir antrenmanı ya da kayıtlı bir planı kopyalayarak başlarsın, dinlenme sayacı çalışırken setleri işaretlersin, artırmaya hazırsan önerilen ağırlığı alırsın ve kaydedersin. Her hareketin küçük bir animasyonu var; `LPD` ya da `D Rise` gibi kısaltmalar gözle tanınır hale gelir. Eski notlarını bir kez yapıştırman yeterli, otomatik olarak antrenmanlara çevrilir.
 
-Telefonun tarayıcısında çalışan bir web uygulamasıdır (PWA): ana ekrana eklenebilir ve salonda internet olmasa da açılır. Sunucu ya da hesap yok; her şey cihazında saklanır. Arayüz Türkçe ve İngilizce; kullanırken keyif versin diye ekranlar kayarak gelir, düğmeler dalgalanır, seti tamamlayınca telefon titrer.
+Telefonun tarayıcısında çalışan bir web uygulamasıdır (PWA): ana ekrana eklenebilir ve salonda internet olmasa da açılır. Sunucu ya da hesap yok; her şey cihazında saklanır. Arayüz Türkçe ve İngilizce; koyu ya da açık temada yedi vurgu rengiyle (neon, pembe, mor, mavi, turkuaz, turuncu, altın) kullanılabilir. Kullanırken keyif versin diye ekranlar kayarak gelir, düğmeler dalgalanır, seti tamamlayınca telefon titrer.
 
 ### Özellikler
 
 **Kayıt**
 - Günün bölgelerini seç (göğüs, sırt, omuz, biceps, triceps, bacak, karın, kardiyo), hareketleri bu bölgelerden seç ya da adıyla veya kısaltmasıyla ara.
-- Her set için ağırlık, tekrar (yazarak ya da −1/+1 düğmeleriyle) ve yardımlı/yarım tekrar (`7+3`). Vücut ağırlığı, süreli ve kardiyo hareketlerinin kendi alanları var.
+- Her set için ağırlık, tekrar (yazarak ya da −/+ düğmeleriyle) ve drop: setin sonunda ağırlığı düşürüp çıkardığın ekstra tekrar (`12+4`). Her kutunun altında ne olduğu yazar (KG, TEKRAR, DROP). Vücut ağırlığı, süreli ve kardiyo hareketlerinin kendi alanları var.
 - Her harekette geçen seferki rakamlar görünür, kutulara da silik olarak yazılır. Yeni rekor yazarken vurgulanır.
 - İlk setin ağırlığını değiştirince aynı ağırlıktaki sonraki setler de güncellenir.
 - Bir hareketi aynı bölgeden başka bir hareketle değiştir, sırasını değiştir, pas geç ya da sadece o harekete not düş (ör. "alet bozuktu").
 - Antrenmanın tamamı için genel not ve "nasıldı?" değerlendirmesi. Taslak sürekli kaydedilir; tarayıcı kapansa da bir şey kaybolmaz.
 
 **Salonda**
-- Setleri yaptıkça işaretle. Boş bir seti işaretlersen geçen seferki rakamlar yazılır.
+- Setleri yaptıkça işaretle. Boş bir seti işaretlersen geçen seferki rakamlar yazılır. Set silmeden önce sorar; ✓'nin yanındaki ✕'e yanlışlıkla basınca set gitmez.
 - Dinlenme sayacı kendiliğinden başlar; bitince titreşir ve ses çıkarır. Varsayılan süre (60 sn – 3 dk) genel olarak ve hareket başına ayarlanabilir, −15/+15 ile anında değiştirilir.
 - Antrenman boyunca ekran açık kalır, bir saat ne kadar süredir çalıştığını gösterir. Süre antrenmanla birlikte kaydedilir.
 - Süperset: bir hareketi sonrakine bağla. Bir seti işaretleyince süpersetteki sıradaki harekete geçilir; dinlenme sayacı sondakinden sonra başlar.
 - Makine ayarı notları (ör. "koltuk 4, göğüs pedi 2") her seferinde hareketin üstünde görünür.
+- Motivasyon sesleri (varsayılan kapalı, Ayarlar'dan açılır): antrenman ekranındaki 📣 düğmesi set öncesi rastgele bir salon sözü çalar; Ronnie Coleman'dan "Yeah buddy!" ve "Light weight baby!", David Goggins'ten "Stay hard!", "We go jim!", "Hafif bu, hafif!" ve hava kornası, vine boom, bas düşüşü gibi meme efektleri. Düğmeye basılı tutunca ses panosu açılır, favorilerini yıldızlayabilirsin.
 
 **İlerleme**
 - Ağırlık önerisi: geçen sefer bütün setleri tamamladıysan GymLog tek dokunuşla bir üst ağırlığı önerir. Bu harekette daha önce kullandığın bir sonraki ağırlığı seçer (makinenin ağırlık kademelerine uyar), yoksa olağan artışını ekler.
@@ -210,7 +214,7 @@ Telefonun tarayıcısında çalışan bir web uygulamasıdır (PWA): ana ekrana 
 3. **Antrenman** sekmesinde bir plandan başla, önceki antrenmanı kopyala ya da boş bir antrenman başlat.
 4. Arada bir yedek al (**Ayarlar → Yedeği indir**). Yedeği başka bir telefonda geri yükleyebilirsin.
 
-Uygulama telefonun diliyle (Türkçe ya da İngilizce) açılır; **Ayarlar → Dil** bölümünden istediğin zaman değiştirebilirsin.
+Uygulama telefonun diliyle (Türkçe ya da İngilizce) açılır; **Ayarlar → Dil** bölümünden istediğin zaman değiştirebilirsin. Tema ve vurgu rengi de **Ayarlar → Tercihler** altında.
 
 ### Gizlilik
 
@@ -232,4 +236,5 @@ Ardından <http://localhost:8080> adresini aç. Örnek verilerle denemek için s
 
 - Veriler tek cihazda, tek tarayıcıda durur. Başka telefona taşımak için yedek dosyasını kullan; otomatik eşitleme yok.
 - Dinlenme sayacı ekran açıkken çalışır. Bir web uygulaması kilit ekranında sayaç gösteremez.
+- Motivasyon seslerinde ses kaydı yok. Sözleri telefonun kendi konuşma sesi okur (yani taklit yapan bir robot gibi duyulur), efektler cihazda üretilir. iPhone'da sessiz tuşu açıksa sesler duyulmaz.
 - İçe aktarma "hareket ağırlık x tekrar x set" tarzı notlara göre ayarlandı. Alışılmadık satırlar tahmin edilmez; not olarak saklanır ve kontrol için işaretlenir.

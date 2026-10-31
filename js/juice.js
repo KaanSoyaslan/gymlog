@@ -18,6 +18,10 @@ export function unlockAudio() {
     if (audio.state === 'suspended') audio.resume();
   } catch { audio = null; }
 }
+export function audioCtx() {
+  unlockAudio();
+  return audio;
+}
 export function beep() {
   if (!audio) return;
   const now = audio.currentTime;
@@ -35,7 +39,7 @@ export function beep() {
 }
 
 // Dokunulan yerden yayılan dalga
-const RIPPLE = '.btn, .rep-btn, .chip, .seg-btn, .nav-item, .set-check, .pick-row, .menu-item, .setting-row, .ex-tile, .session-card, .mood, .add-ex, .anim-choice, .suggest-chip, .icon-btn';
+const RIPPLE = '.btn, .rep-btn, .chip, .seg-btn, .nav-item, .set-check, .pick-row, .menu-item, .setting-row, .ex-tile, .session-card, .mood, .add-ex, .anim-choice, .suggest-chip, .icon-btn, .hype-play, .hype-fav';
 document.addEventListener('pointerdown', (e) => {
   const el = e.target.closest(RIPPLE);
   if (!el || reduced()) return;

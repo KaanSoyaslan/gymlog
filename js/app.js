@@ -20,6 +20,7 @@ import { demoState } from './demo.js';
 import { haptic, confetti, countUp, unlockAudio, stagger, pop } from './juice.js';
 import { startRest, stopRest, keepAwake } from './timer.js';
 import { bodyMap } from './bodymap.js';
+import { hypeButton, hypeBoard, playHype } from './hype.js';
 
 const view = document.getElementById('view');
 const nav = document.getElementById('nav');
@@ -31,8 +32,8 @@ applyTheme();
 
 // ---------- Ortak parçalar ----------
 const FIELDS = {
-  w: [{ k: 'w', label: 'kg', mode: 'decimal' }, { k: 'r', label: 'tekrar', mode: 'numeric' }, { k: 'x', label: '+', mode: 'numeric', small: true }],
-  bw: [{ k: 'w', label: '+kg', mode: 'decimal' }, { k: 'r', label: 'tekrar', mode: 'numeric' }, { k: 'x', label: '+', mode: 'numeric', small: true }],
+  w: [{ k: 'w', label: 'kg', mode: 'decimal' }, { k: 'r', label: 'tekrar', mode: 'numeric' }, { k: 'x', label: 'drop', hint: 'ağırlığı düşürüp ekstra tekrar', mode: 'numeric', small: true }],
+  bw: [{ k: 'w', label: '+kg', mode: 'decimal' }, { k: 'r', label: 'tekrar', mode: 'numeric' }, { k: 'x', label: 'drop', hint: 'ağırlığı düşürüp ekstra tekrar', mode: 'numeric', small: true }],
   time: [{ k: 't', label: 'saniye', mode: 'numeric' }],
   cardio: [{ k: 't', label: 'dakika', mode: 'decimal' }, { k: 'd', label: 'km', mode: 'decimal' }],
 };
@@ -40,6 +41,11 @@ const MOODS = [
   { v: 1, e: '😫', t: 'Kötü' }, { v: 2, e: '😕', t: 'Zayıf' }, { v: 3, e: '😐', t: 'Normal' }, { v: 4, e: '🙂', t: 'İyi' }, { v: 5, e: '🔥', t: 'Harika' },
 ];
 const moodOf = (v) => MOODS.find((m) => m.v === v);
+// Vurgu renkleri; tonları css/style.css'te [data-accent] altında
+const ACCENTS = [
+  { id: 'lime', name: 'Neon' }, { id: 'pink', name: 'Pembe' }, { id: 'purple', name: 'Mor' }, { id: 'blue', name: 'Mavi' },
+  { id: 'teal', name: 'Turkuaz' }, { id: 'orange', name: 'Turuncu' }, { id: 'gold', name: 'Altın' },
+];
 const dk = () => t('dk');
 const sn = () => t('sn');
 
@@ -84,9 +90,12 @@ function empty(text, action) {
 }
 
 function applyTheme() {
-  const t = state.settings.theme;
-  if (t === 'auto') delete document.documentElement.dataset.theme;
-  else document.documentElement.dataset.theme = t;
+  const t = state.settings.theme, ac = state.settings.accent;
+  const root = document.documentElement;
+  if (t === 'auto') delete root.dataset.theme;
+  else root.dataset.theme = t;
+  if (ac && ac !== 'lime') root.dataset.accent = ac;
+  else delete root.dataset.accent;
   const dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.querySelector('meta[name=theme-color]')?.setAttribute('content', dark ? '#0d0e10' : '#f4f4f1');
 }
@@ -287,7 +296,9 @@ function DraftView() {
   page.append(
     h('header.page-head.sticky', null,
       h('div', null, h('h1', null, t('Bugünkü antrenman')), h('p.sub', null, h('span.count', null, t('{n} hareket', { n: d.items.length })), elapsed)),
-      h('button.btn.primary.sm', { onclick: () => saveDraft() }, icon('check'), t('Kaydet'))),
+      h('div.row.gap', null,
+        state.settings.hype ? hypeButton() : null,
+        h('button.btn.primary.sm', { onclick: () => saveDraft() }, icon('check'), t('Kaydet')))),
     editor,
     h('div.stack.mt', null,
       h('button.btn.primary.block.lg', { onclick: () => saveDraft() }, icon('check'), t('Antrenmanı kaydet')),
@@ -580,7 +591,6 @@ function ItemCard(doc, i, ctx) {
 
   // Setler
   const table = h('div.sets' + (isPlan ? '.plan' : ''), { style: `--cols:${fields.length}` });
-  table.append(h('div.set-row.head', null, h('span.set-no', null, t('Set')), fields.map((f) => h('span.set-label' + (f.small ? '.small' : ''), null, t(f.label))), !isPlan ? h('span') : null, h('span.set-del')));
 
   // Set ✓: boş alanları geçen seferkiyle doldurur, rekorda konfeti, süpersette sıradaki harekete geçer, yoksa dinlenme sayacını başlatır.
   let celebrated = false;
@@ -631,8 +641,8 @@ function ItemCard(doc, i, ctx) {
       const input = h('input.set-in' + (f.small ? '.small' : ''), {
         inputmode: f.mode, enterkeyhint: 'next', autocomplete: 'off',
         value: set[f.k] != null && !(f.k === 'x' && !set[f.k]) ? num(set[f.k]) : '',
-        placeholder: f.k === 'x' ? '+' : ph != null ? num(ph) : '–',
-        'aria-label': t('{n}. set {label}', { n: j + 1, label: t(f.label) }),
+        placeholder: f.k === 'x' ? '↓+' : ph != null ? num(ph) : '–',
+        'aria-label': t('{n}. set {label}', { n: j + 1, label: t(f.hint || f.label) }),
       });
       input.addEventListener('focus', () => { input.dataset.old = input.value; setTimeout(() => input.select(), 0); });
       input.addEventListener('input', () => {
@@ -648,7 +658,7 @@ function ItemCard(doc, i, ctx) {
         for (let m = j + 1; m < it.sets.length; m++) {
           if ((it.sets[m][f.k] ?? null) !== oldV) continue;
           if (newV == null) delete it.sets[m][f.k]; else it.sets[m][f.k] = newV;
-          const other = table.querySelectorAll('.set-row:not(.head)')[m]?.querySelectorAll('.set-in')[fields.indexOf(f)];
+          const other = table.querySelectorAll('.set-row')[m]?.querySelectorAll('.set-in')[fields.indexOf(f)];
           if (other) other.value = newV == null ? '' : num(newV);
         }
         ctx.changed();
@@ -660,6 +670,8 @@ function ItemCard(doc, i, ctx) {
         all[all.indexOf(input) + 1]?.focus();
       });
       inputs[f.k] = input;
+      // Her kutunun altında birimi yazar (kg, tekrar, drop…), başlık satırına bakmaya gerek kalmaz
+      const cell = h('label.cell', null, input, h('span.unit', null, t(f.label)));
       if (f.k === 'r') {
         // Tekrar için −1 / +1: boşsa geçen seferki tekrardan başlar
         const step = (d) => {
@@ -673,20 +685,32 @@ function ItemCard(doc, i, ctx) {
         };
         row.append(h('div.rep-step', null,
           h('button.rep-btn', { type: 'button', 'aria-label': t('{n}. set tekrar −1', { n: j + 1 }), onclick: () => step(-1) }, '−'),
-          input,
+          cell,
           h('button.rep-btn', { type: 'button', 'aria-label': t('{n}. set tekrar +1', { n: j + 1 }), onclick: () => step(1) }, '+')));
-      } else row.append(input);
+      } else row.append(cell);
     }
     if (!isPlan) {
       const check = h('button.set-check' + (set.done ? '.done' : ''), { type: 'button', 'aria-label': t('{n}. seti tamamla', { n: j + 1 }), 'aria-pressed': String(!!set.done) }, icon('check'));
       check.addEventListener('click', () => onCheck(set, j, row, check, inputs));
       row.append(check);
     }
-    row.append(h('button.icon-btn.sm.set-del', { 'aria-label': t('{n}. seti sil', { n: j + 1 }), onclick: () => { it.sets.splice(j, 1); ctx.changed(); ctx.repaint(); } }, icon('x')));
+    // ✓'nin yanındaki ✕ yanlışlıkla basılmasın: antrenmanda silmeden önce sorar
+    row.append(h('button.icon-btn.sm.set-del', { type: 'button', 'aria-label': t('{n}. seti sil', { n: j + 1 }), onclick: async () => {
+      const what = hasValue(set) ? ` (${summarize({ sets: [set] }, e.type)})` : '';
+      if (!isPlan && !(await confirmBox(t('{n}. set{what} silinsin mi?', { n: j + 1, what }), { ok: t('Seti sil'), danger: true }))) return;
+      it.sets.splice(j, 1);
+      ctx.changed();
+      ctx.repaint();
+    } }, icon('x')));
     markPR();
     table.append(row);
   });
   card.append(table);
+  if (!isPlan && !state.settings.dropTip && fields.some((f) => f.k === 'x') && doc.items.findIndex((x) => FIELDS[ex(x.exId).type]?.some((f) => f.k === 'x')) === i) {
+    card.append(h('div.drop-hint', null,
+      h('span', null, h('b', null, '↓+ Drop'), ' ', t('= ağırlığı düşürüp setin sonunda çıkardığın ekstra tekrar. Ör. 12 tekrar yaptın, düşürüp 4 tane daha → 4 yaz.')),
+      h('button.icon-btn.sm', { type: 'button', 'aria-label': t('Anladım'), onclick: (ev) => { state.settings.dropTip = true; save(); ev.currentTarget.parentElement.remove(); } }, icon('x'))));
+  }
 
   const noteInput = h('input.input.note-in', {
     value: it.note || '', placeholder: t('Bu hareket için not (ör. alet bozuk)'),
@@ -1377,6 +1401,13 @@ function SettingsView() {
     haptic(8);
     commit();
   };
+  const boardBtn = h('button.btn.block.mt', { type: 'button', hidden: !state.settings.hype, onclick: () => hypeBoard() }, '📣 ', t('Ses panosunu aç'));
+  const hypeToggle = toggleRow(t('Motivasyon sesleri'), t('Antrenman ekranına 📣 düğmesi ekler: set öncesi "Yeah buddy!", "Light weight baby!" ve meşhur meme efektleri.'), state.settings.hype === true, (v) => {
+    state.settings.hype = v;
+    commit();
+    boardBtn.hidden = !v;
+    if (v) { playHype('yeahbuddy'); toast(t('📣 düğmesi antrenman ekranının üstünde.'), 3500); }
+  });
   page.append(section(t('Antrenman'), h('div.card', null,
     h('div.row.gap.between', null,
       h('div', null, h('b', null, t('Haftalık hedef')), h('p.muted.small', null, t('Haftada kaç gün spora gitmek istiyorsun?'))),
@@ -1384,7 +1415,9 @@ function SettingsView() {
     h('div.field.mt', null, h('span', null, t('Varsayılan dinlenme')),
       segmented([60, 90, 120, 180].map((v) => ({ id: v, name: v < 120 ? `${v} ${sn()}` : `${v / 60} ${dk()}` })), state.settings.restDefault || 90, (v) => { state.settings.restDefault = v; commit(); })),
     toggleRow(t('Antrenmanda ekranı açık tut'), t('Telefon kilitlenmez, sayaç görünür kalır.'), state.settings.keepAwake !== false, (v) => { state.settings.keepAwake = v; commit(); }),
-    toggleRow(t('Titreşim'), t('Set tamamlanınca ve sayaç bitince titreşir.'), state.settings.haptics !== false, (v) => { state.settings.haptics = v; commit(); haptic(15); }))));
+    toggleRow(t('Titreşim'), t('Set tamamlanınca ve sayaç bitince titreşir.'), state.settings.haptics !== false, (v) => { state.settings.haptics = v; commit(); haptic(15); }),
+    hypeToggle,
+    boardBtn)));
 
   const goal = h('input.input.w-kg', { inputmode: 'decimal', value: state.settings.goalWeight ?? '', placeholder: 'kg', onchange: (e) => { state.settings.goalWeight = parseNum(e.target.value); commit(); toast(t('Hedef kaydedildi')); } });
   page.append(section(t('Tercihler'), h('div.card', null,
@@ -1397,12 +1430,13 @@ function SettingsView() {
         rerender();
       })),
     h('div.row.gap.between.mt', null, h('div', null, h('b', null, t('Hedef kilo')), h('p.muted.small', null, t('Kilo grafiğinde çizgi olarak görünür.'))), goal),
-    h('div.field.mt', null, h('span', null, t('Tema')), segmented([{ id: 'auto', name: t('Otomatik') }, { id: 'dark', name: t('Koyu') }, { id: 'light', name: t('Açık') }], state.settings.theme, (v) => { state.settings.theme = v; commit(); applyTheme(); })))));
+    h('div.field.mt', null, h('span', null, t('Tema')), segmented([{ id: 'auto', name: t('Otomatik') }, { id: 'dark', name: t('Koyu') }, { id: 'light', name: t('Açık') }], state.settings.theme, (v) => { state.settings.theme = v; commit(); applyTheme(); })),
+    h('div.field.mt', null, h('span', null, t('Renk')), accentPicker()))));
 
   page.append(section(t('Tehlikeli bölge'), h('div.list', null,
     settingRow('trash', t('Tüm verileri sil'), t('Antrenmanlar, planlar ve kendi hareketlerin silinir.'), async () => {
       if (!(await confirmBox(t('Tüm veriler silinsin mi? Bu geri alınamaz. Önce yedek almanı öneririm.'), { ok: t('Hepsini sil'), danger: true }))) return;
-      replaceState({ settings: { lang: state.settings.lang, theme: state.settings.theme } });
+      replaceState({ settings: { lang: state.settings.lang, theme: state.settings.theme, accent: state.settings.accent } });
       rerender();
       toast(t('Tüm veriler silindi'));
     }, true))));
@@ -1412,6 +1446,26 @@ function SettingsView() {
     h('p.muted.small', null, t('Veriler sadece bu cihazda (tarayıcıda) saklanır; hiçbir sunucuya gönderilmez. Telefonu değiştirmeden ya da tarayıcı verisini silmeden önce yedek al.')),
     h('p.small', null, h('a', { href: REPO_URL, target: '_blank', rel: 'noopener' }, icon('github'), 'GitHub'), ' · ', DEMO ? h('a', { href: './' }, t('Demodan çık')) : h('a', { href: '?demo' }, t('Demoyu aç')))));
   return page;
+}
+
+function accentPicker() {
+  const wrap = h('div.swatches', { role: 'radiogroup', 'aria-label': t('Renk') });
+  const paint = () => wrap.replaceChildren(...ACCENTS.map((a) => {
+    const on = (state.settings.accent || 'lime') === a.id;
+    return h('button.swatch' + (on ? '.on' : ''), {
+      type: 'button', role: 'radio', 'aria-checked': String(on), dataset: { accent: a.id },
+      onclick: () => {
+        state.settings.accent = a.id;
+        commit();
+        applyTheme();
+        haptic(10);
+        paint();
+        pop(wrap.querySelector('.swatch.on .dot'));
+      },
+    }, h('span.dot', null, on ? icon('check') : null), h('span.name', null, t(a.name)));
+  }));
+  paint();
+  return wrap;
 }
 
 function settingRow(ic, title, desc, onclick, danger = false) {

@@ -26,8 +26,9 @@
     // Tema seçimi sayfa çizilmeden uygulanır (ilk karede renk atlaması olmasın).
     try {
       const key = location.search.includes('demo') ? 'gymlog.demo.v1' : 'gymlog.v1';
-      const t = JSON.parse(localStorage.getItem(key) || '{}').settings?.theme;
-      if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+      const s = JSON.parse(localStorage.getItem(key) || '{}').settings || {};
+      if (s.theme === 'dark' || s.theme === 'light') document.documentElement.dataset.theme = s.theme;
+      if (s.accent && s.accent !== 'lime') document.documentElement.dataset.accent = s.accent;
     } catch (e) { /* boş */ }
   </script>
 </head>
