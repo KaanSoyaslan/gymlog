@@ -69,7 +69,7 @@ function solve(p, view) {
   const ua = p.ua ?? LEN.ua, fa = p.fa2 ?? LEN.fa, th = p.th ?? LEN.th, sh = p.shn ?? LEN.sh;
   const [eL, hL] = limb(sL, p.aL, ua, fa, armOff);
   const [eR, hR] = limb(sR, p.aR ?? p.aL, ua, fa, armOff);
-  const out = { hip, neck, head, sL, sR, eL, eR, hL, hR, pL, pR, mid: mid(hL, hR), torso: p.torso };
+  const out = { hip, neck, head, sL, sR, eL, eR, hL, hR, pL, pR, mid: mid(hL, hR), torso: p.torso, ...(p.pts || {}) };
   if (!top && p.lL) {
     [out.kL, out.fL] = limb(pL, p.lL, th, sh);
     [out.kR, out.fR] = limb(pR, p.lR ?? p.lL, th, sh);
@@ -89,10 +89,16 @@ const PULLEY_TOP = '<line class="sc" x1="74" y1="2" x2="74" y2="95"/><circle cla
 const PULLEY_LOW = '<line class="sc" x1="80" y1="40" x2="80" y2="95"/><circle class="sc" cx="76" cy="90" r="2.6"/>';
 const POSTS = '<line class="sc" x1="6" y1="4" x2="6" y2="95"/><line class="sc" x1="94" y1="4" x2="94" y2="95"/>';
 const SEAT_FRONT = '<rect class="sc-fill soft" x="39" y="33" width="22" height="37" rx="3"/><rect class="sc-fill" x="34" y="69" width="32" height="4" rx="1.5"/>';
+const INCLINE = '<line class="sc thick" x1="62" y1="74" x2="32" y2="52"/><rect class="sc-fill" x="54" y="72" width="16" height="4" rx="1.5"/><line class="sc" x1="60" y1="76" x2="60" y2="95"/>';
+const CHEST_PAD = '<line class="sc thick" x1="34" y1="70" x2="48" y2="58"/><line class="sc" x1="40" y1="66" x2="40" y2="95"/>';
+const LPD_SCENE = '<circle class="sc" cx="50" cy="5" r="2.6"/><rect class="sc-fill" x="36" y="69" width="28" height="4" rx="1.5"/><line class="sc" x1="50" y1="73" x2="50" y2="95"/>';
+const POLE_BACK = '<line class="sc" x1="8" y1="8" x2="8" y2="95"/>';
 
 const STAND = { hip: [48, 54], torso: -90, lL: [90, 90], lR: [90, 90] };
 const FRONT_STAND = { hip: [50, 54], torso: -90, lL: [94, 92], lR: [86, 88] };
 const FRONT_SEAT = { hip: [50, 68], torso: -90, th: 7, lL: [104, 93], lR: [76, 87] };
+const ABD_OPEN = { th: 15, lL: [150, 98], lR: [30, 82] };
+const ABD_CLOSED = { ...FRONT_SEAT, aL: { t: [34, 66], b: -1 }, aR: { t: [66, 66], b: 1 }, lL: [100, 93], lR: [80, 87] };
 
 const curl = { view: 'side', hl: ['ua'], scene: GROUND, A: { ...STAND, aL: [92, 90] }, B: { aL: [84, -56] } };
 const pushdown = {
@@ -390,6 +396,264 @@ export const PATTERNS = {
     B: { hip: [32, 80], torso: -112, head: -100, aL: { t: [38, 64], b: 1 } },
     gear: [{ t: 'cable', from: [84, 70], to: 'hL', back: true }, { t: 'handle', at: 'hL', rot: 90 }],
   },
+
+  // ---------- Bölgesel hareketler ----------
+  inclineCurl: {
+    view: 'side', hl: ['ua'], scene: GROUND + INCLINE,
+    A: { hip: [58, 69], torso: -145, head: -130, aL: [94, 92], lL: { t: [78, 94], b: -1 } },
+    B: { aL: [94, -40] }, gear: [{ t: 'dbEnd', at: 'hL' }],
+  },
+  concentrationCurl: {
+    view: 'side', hl: ['ua'], scene: GROUND + BENCH_LOW,
+    A: { hip: [40, 71], torso: -48, head: -25, aL: [88, 86], lL: [10, 92], lR: [-2, 100] },
+    B: { aL: [88, -75] }, gear: [{ t: 'dbEnd', at: 'hL' }],
+  },
+  spiderCurl: {
+    view: 'side', hl: ['ua'], scene: GROUND + CHEST_PAD,
+    A: { hip: [30, 62], torso: -40, head: -28, aL: [88, 86], lL: { t: [26, 94], b: -1 }, lR: { t: [20, 94], b: -1 } },
+    B: { aL: [88, -60] }, gear: [{ t: 'bb', at: 'hL', r: 6 }],
+  },
+  bayesianCurl: {
+    view: 'side', hl: ['ua'], scene: GROUND + POLE_BACK + '<circle class="sc" cx="12" cy="88" r="2.6"/>',
+    A: { hip: [52, 54], torso: -84, head: -84, aL: [122, 130], lL: { t: [60, 94], b: -1 }, lR: { t: [42, 94], b: -1 } },
+    B: { aL: [122, -30] }, gear: [{ t: 'cable', from: [12, 88], to: 'hL', back: true }, { t: 'grip', at: 'hL' }],
+  },
+  wristCurl: {
+    view: 'side', hl: ['fa'], scene: GROUND + BENCH_LOW,
+    A: { hip: [40, 71], torso: -85, head: -80, aL: [70, 38], lL: [0, 92], lR: [0, 92] },
+    B: { aL: [70, -8] }, gear: [{ t: 'dbEnd', at: 'hL' }],
+  },
+  cableOverhead: {
+    view: 'side', hl: ['ua'], scene: GROUND + POLE_BACK + '<circle class="sc" cx="12" cy="36" r="2.6"/>',
+    A: { hip: [52, 56], torso: -70, head: -64, aL: [-118, 120], lL: { t: [64, 94], b: -1 }, lR: { t: [40, 94], b: -1 } },
+    B: { aL: [-118, -42] }, gear: [{ t: 'cable', from: [12, 36], to: 'hL', back: true }, { t: 'handle', at: 'hL', rot: 90, len: 7 }],
+  },
+  benchDips: {
+    view: 'side', hl: ['ua'],
+    scene: GROUND + '<rect class="sc-fill" x="12" y="58" width="28" height="4" rx="1.5"/><line class="sc" x1="16" y1="62" x2="16" y2="95"/><line class="sc" x1="36" y1="62" x2="36" y2="95"/>',
+    A: { hip: [44, 60], torso: -88, head: -86, aL: { t: [37, 58], b: 1 }, lL: { t: [72, 90], b: -1 }, fa: -30 },
+    B: { hip: [46, 76] },
+  },
+  declinePress: {
+    view: 'side', hl: ['torso'],
+    scene: GROUND + '<line class="sc thick" x1="78" y1="59" x2="24" y2="77"/><line class="sc" x1="66" y1="63" x2="66" y2="95"/><line class="sc" x1="36" y1="73" x2="36" y2="95"/>',
+    A: { hip: [62, 58], torso: 162, head: 165, aL: { t: [38, 52], b: 1 }, lL: { t: [82, 76], b: -1 }, fa: 0 },
+    B: { aL: { t: [37, 39], b: 1 } }, gear: [{ t: 'bb', at: 'hL' }],
+  },
+  pullover: {
+    view: 'side', hl: ['torso'], scene: GROUND + BENCH,
+    A: { hip: [60, 66], torso: 180, head: 182, aL: [172, 174], lL: { t: [80, 94], b: -1 } },
+    B: { aL: [278, 274] }, gear: [{ t: 'dbEnd', at: 'hL' }],
+  },
+  declinePushUp: {
+    view: 'side', hl: ['torso', 'ua'],
+    scene: GROUND + '<rect class="sc-fill" x="2" y="68" width="16" height="4" rx="1.5"/><line class="sc" x1="10" y1="72" x2="10" y2="95"/>',
+    A: { hip: [42, 62], torso: 14, head: 8, aL: { t: [72, 94], b: 1 }, lL: { t: [6, 66], b: -1 }, fa: 100 },
+    B: { hip: [42, 68], torso: 30, head: 20 },
+  },
+  inclineBench: {
+    view: 'side', hl: ['torso', 'delt'], scene: GROUND + INCLINE,
+    A: { hip: [58, 69], torso: -145, head: -130, aL: { t: [44, 45], b: 1 }, lL: { t: [78, 94], b: -1 } },
+    B: { aL: { t: [39, 28], b: 1 } }, gear: [{ t: 'bb', at: 'hL' }],
+  },
+  lowCross: {
+    view: 'front', hl: ['torso'], scene: GROUND + POSTS,
+    A: { ...FRONT_STAND, aL: [130, 125], aR: [50, 55] }, B: { aL: [50, -80], aR: [130, 260] },
+    gear: [{ t: 'cable', from: [8, 88], to: 'hL' }, { t: 'cable', from: [92, 88], to: 'hR' }, { t: 'grip', at: 'hL' }, { t: 'grip', at: 'hR' }],
+  },
+  chestRow: {
+    view: 'side', hl: ['torso'], scene: GROUND + CHEST_PAD,
+    A: { hip: [30, 62], torso: -40, head: -28, aL: [88, 88], lL: { t: [26, 94], b: -1 }, lR: { t: [20, 94], b: -1 } },
+    B: { aL: [160, 95] }, gear: [{ t: 'dbEnd', at: 'hL' }],
+  },
+  latPulldownClose: {
+    view: 'front', hl: ['torso'], scene: GROUND + LPD_SCENE,
+    A: { ...FRONT_SEAT, aL: { t: [42, 14], b: -1 }, aR: { t: [58, 14], b: 1 } },
+    B: { aL: { t: [44, 38], b: -1 }, aR: { t: [56, 38], b: 1 } },
+    gear: [{ t: 'cable', from: [50, 5], to: 'mid', back: true }, { t: 'bar', from: 'hL', to: 'hR', ext: 2 }],
+  },
+  rackPull: {
+    view: 'side', hl: ['torso'], scene: GROUND + '<line class="sc thick" x1="48" y1="75" x2="72" y2="75"/><line class="sc" x1="68" y1="75" x2="68" y2="95"/>',
+    A: { hip: [42, 60], torso: -52, head: -40, aL: [88, 90], lL: { t: [54, 94], b: -1 } },
+    B: { hip: [48, 54], torso: -88, head: -88 }, gear: [{ t: 'bb', at: 'hL' }],
+  },
+  goodMorning: {
+    view: 'side', hl: ['torso', 'th'], scene: GROUND,
+    A: { hip: [48, 54], torso: -88, head: -88, armsRel: true, aL: [150, -45], lL: { t: [54, 94], b: -1 } },
+    B: { hip: [40, 57], torso: -18, head: -8 }, gear: [{ t: 'bb', at: 'neck', off: [-6, 3], rel: true, r: 7 }],
+  },
+  invertedRow: {
+    view: 'side', hl: ['torso'], scene: GROUND + '<line class="sc thick" x1="56" y1="44" x2="84" y2="44"/><line class="sc" x1="80" y1="44" x2="80" y2="95"/>',
+    A: { hip: [40, 76], torso: -14, head: -8, aL: { t: [70, 44], b: -1 }, lL: { t: [8, 92], b: 1 }, fa: -60 },
+    B: { hip: [42, 66], torso: -24, head: -14 },
+  },
+  shrugBar: {
+    view: 'front', hl: ['delt'], scene: GROUND,
+    A: { ...FRONT_STAND, aL: [92, 91], aR: [88, 89] }, B: { shY: -5 },
+    gear: [{ t: 'bar', from: 'hL', to: 'hR', ext: 8 }],
+  },
+  arnold: {
+    view: 'front', hl: ['delt'], scene: GROUND + SEAT_FRONT,
+    A: { ...FRONT_SEAT, aL: { t: [42, 38], b: -1 }, aR: { t: [58, 38], b: 1 } },
+    B: { aL: { t: [43, 15], b: -1 }, aR: { t: [57, 15], b: 1 } },
+    gear: [{ t: 'db', at: 'hL', rot: 0 }, { t: 'db', at: 'hR', rot: 0 }],
+  },
+  ohp: {
+    view: 'front', hl: ['delt'], scene: GROUND,
+    A: { ...FRONT_STAND, aL: { t: [36, 30], b: -1 }, aR: { t: [64, 30], b: 1 } },
+    B: { aL: { t: [41, 6], b: -1 }, aR: { t: [59, 6], b: 1 } },
+    gear: [{ t: 'bar', from: 'hL', to: 'hR', ext: 13, plates: true }],
+  },
+  bentRearFly: {
+    view: 'top', hl: ['delt'],
+    A: { hip: [50, 60], torso: -90, aL: [-82, -86], aR: [-98, -94] },
+    B: { aL: [-176, -184], aR: [-4, 4] }, gear: [{ t: 'dbEnd', at: 'hL' }, { t: 'dbEnd', at: 'hR' }],
+  },
+  frontSquat: {
+    view: 'side', hl: ['th'], scene: GROUND,
+    A: { hip: [50, 54], torso: -88, head: -88, aL: [10, 180], lL: { t: [54, 94], b: -1 } },
+    B: { hip: [38, 74], torso: -66, head: -58 }, gear: [{ t: 'bb', at: 'neck', off: [5, 3], rel: true, r: 7 }],
+  },
+  hackSquat: {
+    view: 'side', hl: ['th'], scene: GROUND + '<line class="sc thick" x1="24" y1="84" x2="50" y2="10"/><line class="sc thick" x1="48" y1="93" x2="72" y2="85"/>',
+    A: { hip: [40, 56], torso: -70, head: -70, armsRel: true, aL: [150, -45], lL: { t: [58, 89], b: -1 }, fa: -12 },
+    B: { hip: [33, 74] },
+  },
+  bulgarian: {
+    view: 'side', hl: ['th'], scene: GROUND + '<rect class="sc-fill" x="4" y="58" width="24" height="4" rx="1.5"/><line class="sc" x1="10" y1="62" x2="10" y2="95"/><line class="sc" x1="22" y1="62" x2="22" y2="95"/>',
+    A: { hip: [44, 56], torso: -86, head: -86, aL: [90, 90], lL: { t: [56, 94], b: -1 }, lR: { t: [18, 56], b: -1 }, faR: 60 },
+    B: { hip: [40, 70], torso: -78, head: -78 }, gear: [{ t: 'dbEnd', at: 'hL' }],
+  },
+  stepUp: {
+    view: 'side', hl: ['th'], scene: '<rect class="sc-fill" x="54" y="78" width="32" height="17" rx="2"/>' + GROUND,
+    A: { hip: [44, 58], torso: -86, head: -86, aL: [90, 90], lL: { t: [64, 77], b: -1 }, lR: { t: [40, 94], b: -1 } },
+    B: { hip: [58, 44], torso: -88, head: -88, lR: { t: [44, 74], b: -1 } }, gear: [{ t: 'dbEnd', at: 'hL' }],
+  },
+  seatedLegCurl: {
+    view: 'side', hl: ['th'],
+    scene: GROUND + '<line class="sc thick" x1="34" y1="70" x2="29" y2="40"/><rect class="sc-fill" x="30" y="69" width="30" height="4" rx="1.5"/><line class="sc" x1="44" y1="73" x2="44" y2="95"/>',
+    A: { hip: [40, 66], torso: -100, aL: [78, 18], lL: [0, 2], lR: [0, 2], fa: -80 },
+    B: { lL: [0, 100], lR: [0, 100], fa: 0 }, gear: [{ t: 'pad', at: 'fL', side: 90 }],
+  },
+  abductor: {
+    view: 'front', hl: ['th'], scene: GROUND + SEAT_FRONT,
+    A: ABD_CLOSED, B: ABD_OPEN, gear: [{ t: 'grip', at: 'kL' }, { t: 'grip', at: 'kR' }],
+  },
+  adductor: {
+    view: 'front', hl: ['th'], scene: GROUND + SEAT_FRONT,
+    A: { ...ABD_CLOSED, ...ABD_OPEN }, B: { th: 7, lL: ABD_CLOSED.lL, lR: ABD_CLOSED.lR }, gear: [{ t: 'grip', at: 'kL' }, { t: 'grip', at: 'kR' }],
+  },
+  gluteKick: {
+    view: 'side', hl: ['th'], scene: GROUND + '<line class="sc" x1="86" y1="8" x2="86" y2="95"/><circle class="sc" cx="82" cy="90" r="2.6"/>',
+    A: { hip: [50, 54], torso: -72, head: -66, aL: { t: [84, 40], b: 1 }, lL: [96, 94], lR: [86, 90] },
+    B: { lL: [148, 130] }, gear: [{ t: 'cable', from: [82, 90], to: 'fL', back: true }],
+  },
+  seatedCalf: {
+    view: 'side', hl: ['sh'],
+    scene: GROUND + '<rect class="sc-fill" x="24" y="72" width="26" height="4" rx="1.5"/><line class="sc" x1="36" y1="76" x2="36" y2="95"/><rect class="sc-fill" x="54" y="91" width="16" height="4" rx="1"/>',
+    A: { hip: [38, 68], torso: -92, head: -90, aL: [75, 25], lL: { t: [58, 90], b: -1 }, fa: 12 },
+    B: { lL: { t: [58, 84], b: -1 }, fa: 60 },
+  },
+  russianTwist: {
+    view: 'front', hl: ['torso'], scene: GROUND, period: 2000,
+    A: { hip: [50, 70], torso: -82, head: -82, th: 11, shn: 13, aL: { t: [72, 52], b: -1 }, aR: { t: [72, 52], b: 1 }, lL: [130, 60], lR: [50, 120] },
+    B: { torso: -98, head: -98, aL: { t: [28, 52], b: -1 }, aR: { t: [28, 52], b: 1 } }, gear: [{ t: 'dbEnd', at: 'mid' }],
+  },
+  sidePlank: {
+    view: 'side', hl: ['torso'], scene: GROUND, period: 3200,
+    A: { hip: [42, 84], torso: -14, head: -10, aL: [90, 2], aR: [-90, -90], lL: { t: [6, 92], b: 1 }, fa: 100 },
+    B: { hip: [42, 81], torso: -18, head: -14 },
+  },
+  abWheel: {
+    view: 'side', hl: ['torso'], scene: GROUND,
+    A: { hip: [44, 74], torso: -30, head: -20, aL: { t: [68, 89], b: 1 }, lL: { t: [20, 92], b: -1 }, lR: { t: [22, 92], b: -1 }, fa: 170 },
+    B: { hip: [48, 84], torso: -4, head: -2, aL: { t: [94, 89], b: 1 } }, gear: [{ t: 'bb', at: 'hL', r: 5 }],
+  },
+  lyingLegRaise: {
+    view: 'side', hl: ['torso', 'th'], scene: GROUND,
+    A: { hip: [56, 89], torso: 182, head: 184, aL: [4, 2], lL: [-4, -2], lR: [-8, -6], fa: -70 },
+    B: { lL: [-72, -70], lR: [-76, -74], fa: -160 },
+  },
+  bicycleCrunch: {
+    view: 'side', hl: ['torso'], scene: GROUND, period: 1600,
+    fn(p) {
+      const a = p * 2 * Math.PI;
+      const foot = (k) => ({ t: [72 + 12 * Math.cos(a + k), 78 + 8 * Math.sin(a + k)], b: -1 });
+      return { hip: [56, 88], torso: 208 + 4 * Math.sin(a), head: 220, armsRel: true, aL: [-60, -170], lL: foot(0), lR: foot(Math.PI), fa: -20 };
+    },
+  },
+  woodchop: {
+    view: 'front', hl: ['torso'], scene: GROUND + POLE_BACK + '<circle class="sc" cx="12" cy="12" r="2.6"/>',
+    A: { ...FRONT_STAND, torso: -84, head: -84, aL: { t: [24, 18], b: -1 }, aR: { t: [24, 18], b: -1 } },
+    B: { torso: -96, head: -96, aL: { t: [72, 70], b: 1 }, aR: { t: [72, 70], b: 1 } },
+    gear: [{ t: 'cable', from: [12, 12], to: 'mid', back: true }, { t: 'grip', at: 'mid' }],
+  },
+  sideBend: {
+    view: 'front', hl: ['torso'], scene: GROUND,
+    A: { ...FRONT_STAND, torso: -84, head: -84, aL: [94, 92], aR: [-40, 200] },
+    B: { torso: -100, head: -100 }, gear: [{ t: 'dbEnd', at: 'hL' }],
+  },
+  situp: {
+    view: 'side', hl: ['torso'], scene: GROUND,
+    A: { hip: [56, 88], torso: 182, head: 184, armsRel: true, aL: [-60, -170], lL: { t: [78, 93], b: -1 } },
+    B: { torso: 262, head: 268 },
+  },
+  mountain: {
+    view: 'side', hl: ['torso', 'th'], scene: GROUND, period: 1000,
+    fn(p) {
+      const a = p * 2 * Math.PI;
+      const leg = (k) => { const s = Math.max(0, Math.sin(a + k)); return { t: [8 + 24 * s, 92 - 8 * s], b: -1 }; };
+      return { hip: [42, 74 + 1.5 * Math.cos(2 * a)], torso: -16, head: -10, aL: { t: [70, 94], b: 1 }, lL: leg(0), lR: leg(Math.PI), fa: 100 };
+    },
+  },
+  farmerWalk: {
+    view: 'side', hl: ['fa', 'torso'], scene: GROUND, period: 1300,
+    fn(p) {
+      const a = p * 2 * Math.PI, s = Math.sin(a), c = Math.cos(a);
+      const leg = (x, y) => { const th = 90 - 18 * x; return [th, th + 6 + 30 * Math.max(0, y)]; };
+      return { hip: [48, 54 + Math.cos(2 * a)], torso: -88, head: -88, aL: [90 + 3 * s, 90], aR: [90 - 3 * s, 90], lL: leg(s, c), lR: leg(-s, -c), fa: 10 };
+    },
+    gear: [{ t: 'dbEnd', at: 'hL' }],
+  },
+  stairs: {
+    view: 'side', hl: ['th'], period: 1400,
+    scene: GROUND + '<line class="sc" x1="78" y1="95" x2="74" y2="36"/><line class="sc thick" x1="74" y1="36" x2="64" y2="36"/><line class="sc thick" x1="40" y1="90" x2="66" y2="90"/>',
+    fn(p) {
+      const s = Math.sin(p * 2 * Math.PI);
+      return { hip: [42, 52 + 1.5 * s], torso: -80, head: -82, aL: { t: [66, 38], b: 1 }, lL: { t: [52 + 5 * s, 82 - 8 * s], b: -1 }, lR: { t: [52 - 5 * s, 82 + 8 * s], b: -1 }, fa: 8 };
+    },
+  },
+  jumpRope: {
+    view: 'front', hl: ['sh'], period: 800,
+    scene: GROUND,
+    fn(p) {
+      const a = p * 2 * Math.PI, up = Math.abs(Math.sin(a)) * 5;
+      return { hip: [50, 52 - up], torso: -90, head: -90, aL: [112, 150], aR: [68, 30], lL: [93, 90], lR: [87, 90], pts: { rope: [50, 50 + 45 * Math.cos(a)] } };
+    },
+    gear: [{ t: 'cable', from: 'hL', to: 'rope', back: true }, { t: 'cable', from: 'hR', to: 'rope', back: true }],
+  },
+  burpee: {
+    view: 'side', hl: ['torso', 'th'], scene: GROUND, period: 2200,
+    A: { hip: [48, 54], torso: -88, head: -88, aL: { t: [50, 76], b: 1 }, lL: { t: [54, 94], b: -1 }, lR: { t: [46, 94], b: -1 }, fa: 8 },
+    B: { hip: [44, 78], torso: -10, head: -6, aL: { t: [72, 94], b: 1 }, lL: { t: [10, 92], b: -1 }, lR: { t: [12, 92], b: -1 }, fa: 100 },
+  },
+
+  // Dinlenme sayacının içindeki bekleme animasyonları (hareket listesinde yok)
+  restSip: {
+    view: 'side', hl: [], scene: GROUND + BENCH_LOW, period: 4200,
+    A: { hip: [42, 71], torso: -88, head: -84, aL: [65, 10], lL: [0, 92], lR: [4, 94] },
+    B: { torso: -92, head: -102, aL: [50, -100] }, gear: [{ t: 'bottle', at: 'hL', rot: 'fa' }],
+  },
+  restBreath: {
+    view: 'side', hl: [], scene: GROUND, period: 2200,
+    A: { hip: [44, 56], torso: -50, head: -28, aL: { t: [56, 62], b: 1 }, lL: { t: [50, 94], b: -1 }, lR: { t: [42, 94], b: -1 } },
+    B: { hip: [44, 55], torso: -54, head: -22 },
+  },
+  restSit: {
+    view: 'side', hl: [], scene: GROUND + BENCH_LOW, period: 3600,
+    A: { hip: [42, 71], torso: -70, head: -40, aL: { t: [58, 68], b: 1 }, lL: [0, 92], lR: [4, 94] },
+    B: { torso: -74, head: -55 },
+  },
 };
 
 // Kendi hareketini eklerken seçilebilecek animasyonlar: [anahtar, Türkçe ad, İngilizce ad]
@@ -402,6 +666,14 @@ export const ANIM_CHOICES = [
   ['squat', 'Squat', 'Squat'], ['gobletSquat', 'Goblet squat', 'Goblet squat'], ['legPress', 'Leg press', 'Leg press'], ['legExt', 'Leg extension', 'Leg extension'], ['legCurl', 'Leg curl', 'Leg curl'], ['rdl', 'RDL', 'RDL'], ['lunge', 'Lunge', 'Lunge'], ['hipThrust', 'Hip thrust', 'Hip thrust'], ['calfRaise', 'Calf raise', 'Calf raise'],
   ['crunch', 'Crunch', 'Crunch'], ['plank', 'Plank', 'Plank'], ['legRaise', 'Bacak kaldırma', 'Leg raise'], ['cableCrunch', 'Kablo crunch', 'Cable crunch'],
   ['run', 'Koşu', 'Running'], ['bike', 'Bisiklet', 'Bike'], ['rowMachine', 'Kürek', 'Rowing'],
+  ['inclineCurl', 'Incline curl', 'Incline curl'], ['concentrationCurl', 'Concentration curl', 'Concentration curl'], ['spiderCurl', 'Spider curl', 'Spider curl'], ['bayesianCurl', 'Bayesian curl', 'Bayesian curl'], ['wristCurl', 'Bilek curl', 'Wrist curl'],
+  ['cableOverhead', 'Kablo baş üstü', 'Cable overhead'], ['benchDips', 'Sehpa dips', 'Bench dips'],
+  ['inclineBench', 'Incline bar press', 'Incline bench'], ['declinePress', 'Decline press', 'Decline press'], ['lowCross', 'Alttan crossover', 'Low cable fly'], ['pullover', 'Pullover', 'Pullover'], ['declinePushUp', 'Ayaklar yukarıda şınav', 'Decline push-up'],
+  ['chestRow', 'Göğüs destekli row', 'Chest-supported row'], ['latPulldownClose', 'Dar pulldown', 'Close-grip pulldown'], ['rackPull', 'Rack pull', 'Rack pull'], ['goodMorning', 'Good morning', 'Good morning'], ['invertedRow', 'Inverted row', 'Inverted row'], ['shrugBar', 'Bar shrug', 'Barbell shrug'],
+  ['arnold', 'Arnold press', 'Arnold press'], ['ohp', 'Ayakta press', 'Overhead press'], ['bentRearFly', 'Eğilerek arka omuz', 'Bent-over rear fly'],
+  ['frontSquat', 'Front squat', 'Front squat'], ['hackSquat', 'Hack squat', 'Hack squat'], ['bulgarian', 'Bulgarian squat', 'Bulgarian squat'], ['stepUp', 'Step-up', 'Step-up'], ['seatedLegCurl', 'Oturarak leg curl', 'Seated leg curl'], ['abductor', 'Dış bacak', 'Abductor'], ['adductor', 'İç bacak', 'Adductor'], ['gluteKick', 'Kablo kalça', 'Glute kickback'], ['seatedCalf', 'Oturarak baldır', 'Seated calf'],
+  ['situp', 'Sit-up', 'Sit-up'], ['lyingLegRaise', 'Yerde bacak', 'Lying leg raise'], ['russianTwist', 'Russian twist', 'Russian twist'], ['bicycleCrunch', 'Bisiklet mekik', 'Bicycle crunch'], ['sidePlank', 'Yan plank', 'Side plank'], ['abWheel', 'Ab wheel', 'Ab wheel'], ['woodchop', 'Woodchop', 'Woodchop'], ['sideBend', 'Yana eğilme', 'Side bend'], ['mountain', 'Mountain climber', 'Mountain climber'], ['farmerWalk', 'Farmer walk', 'Farmer walk'],
+  ['stairs', 'Merdiven', 'Stairs'], ['jumpRope', 'İp atlama', 'Jump rope'], ['burpee', 'Burpee', 'Burpee'],
 ];
 
 // B pozu yalnızca değişen alanları yazar; geri kalanı A'dan gelir.
@@ -440,6 +712,9 @@ function gearNode(o) {
       break;
     case 'grip':
       g.innerHTML = '<circle r="2.4"/>';
+      break;
+    case 'bottle':
+      g.innerHTML = '<rect x="-2.6" y="-7" width="5.2" height="14" rx="2"/>';
       break;
     case 'pad':
       g.innerHTML = '<circle r="3.4"/>';

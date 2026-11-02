@@ -54,6 +54,7 @@ export const ICONS = {
   up: s('<path d="m18 15-6-6-6 6"/>'),
   down: s('<path d="m6 9 6 6 6-6"/>'),
   check: s('<path d="M20 6 9 17l-5-5"/>'),
+  flag: s('<path d="M5 21V4"/><path d="M5 4h13l-3 4.5 3 4.5H5"/>'),
   trophy: s('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0Z"/><path d="M17 5h3v2a4 4 0 0 1-4 4M7 5H4v2a4 4 0 0 0 4 4"/>'),
   scale: s('<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 9a4 4 0 0 1 8 0"/><path d="m12 9 1.5-2"/>'),
   play: s('<path d="M7 4v16l13-8Z"/>', 'fill="currentColor"'),

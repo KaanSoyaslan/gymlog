@@ -10,7 +10,7 @@ import {
   weightSeries, addWeighIn, lastWeight,
   upsertTemplate, deleteTemplate, templateLastDone, suggestNext, suggestPlans, templateFromSession,
   newDraft, itemsFromTemplate, itemsFromSession,
-  restFor, suggestIncrease, weekProgress, groupSets, sessionsSince, MEASURES, addMeasurement, deleteMeasurement,
+  didSet, lastSeen, withComeback, restFor, suggestIncrease, weekProgress, groupSets, sessionsSince, MEASURES, addMeasurement, deleteMeasurement,
 } from './store.js';
 import { today, fmtDate, relDays, num, parseNum, daysBetween, addDays, monthName, monthShort, dayShort, dayMini, parseYmd, compact } from './format.js';
 import { h, icon, sheet, confirmBox, menu, toast, chips, segmented, closeAll, settled } from './ui.js';
@@ -21,6 +21,7 @@ import { haptic, confetti, countUp, unlockAudio, stagger, pop } from './juice.js
 import { startRest, stopRest, keepAwake } from './timer.js';
 import { bodyMap } from './bodymap.js';
 import { hypeButton, hypeBoard, playHype } from './hype.js';
+import { heroCard } from './hero.js';
 
 const view = document.getElementById('view');
 const nav = document.getElementById('nav');
@@ -50,7 +51,13 @@ const dk = () => t('dk');
 const sn = () => t('sn');
 
 export function summarize(item, type) {
-  const sets = item.sets.filter(hasValue);
+  const text = summarizeDone(item, type);
+  const pas = item.skipped ? 0 : item.sets.filter((s) => s.skip && hasValue(s)).length;
+  return pas ? text + t(' · {n} set pas', { n: pas }) : text;
+}
+
+function summarizeDone(item, type) {
+  const sets = item.sets.filter(didSet);
   if (!sets.length) return item.skipped ? t('pas') : '—';
   if (type === 'cardio') {
     const d = sets.reduce((a, s) => a + (s.d || 0), 0);
@@ -179,6 +186,15 @@ function StartView() {
       h('button.icon-btn.sm', { 'aria-label': t('Kapat'), onclick: () => { state.settings.installHidden = true; commit(); rerender(); } }, icon('x'))));
   }
 
+  const doneToday = all.find((s) => s.date === today() && s.items.some((it) => !it.skipped));
+  if (doneToday) {
+    page.append(h('div.card.today-card', null, icon('check'),
+      h('div.grow', null,
+        h('b', null, t('Bugünkü antrenman tamamlandı')),
+        h('span.muted.small', null, t('Yanlışlıkla mı bitirdin, eksik mi kaldı? Kaldığın yerden devam et.'))),
+      h('button.btn.sm.primary', { onclick: () => resumeSession(doneToday) }, icon('play'), t('Devam et'))));
+  }
+
   const last = all[0];
   if (last) {
     const wp = weekProgress();
@@ -276,6 +292,18 @@ function startFromTemplate(t) {
 function startFromSession(s) {
   setDraft(newDraft({ date: today(), groups: sessionGroups(s).slice(), items: itemsFromSession(s) }));
 }
+// Aynı gün biten antrenmana dönüş: yapılan setler işaretli kalır, süre kaldığı yerden sayar.
+// Kayıt, yeniden tamamlanana kadar olduğu gibi durur; aynı kaydın üstüne yazılır.
+function resumeSession(s) {
+  const d = clone(s);
+  d.items = d.items.map((it) => ({
+    ...it, skipped: false,
+    sets: it.sets.length ? it.sets.map(({ skip, ...rest }) => (skip || it.skipped ? rest : { ...rest, done: true })) : [{}],
+  }));
+  d.startedAt = Date.now() - (s.duration || 0) * 60000;
+  d.resumed = true;
+  setDraft(d);
+}
 
 const clock = (ms) => {
   const sec = Math.max(0, Math.floor(ms / 1000));
@@ -298,16 +326,17 @@ function DraftView() {
       h('div', null, h('h1', null, t('Bugünkü antrenman')), h('p.sub', null, h('span.count', null, t('{n} hareket', { n: d.items.length })), elapsed)),
       h('div.row.gap', null,
         state.settings.hype ? hypeButton() : null,
-        h('button.btn.primary.sm', { onclick: () => saveDraft() }, icon('check'), t('Kaydet')))),
+        h('button.btn.primary.sm', { onclick: finishSheet }, icon('flag'), t('Bitir')))),
     editor,
     h('div.stack.mt', null,
-      h('button.btn.primary.block.lg', { onclick: () => saveDraft() }, icon('check'), t('Antrenmanı kaydet')),
-      h('button.btn.ghost.block', { onclick: discardDraft }, t('Antrenmanı sil'))));
+      h('p.muted.small.center', null, t('Her şey otomatik kaydediliyor; uygulamayı arkaya atabilirsin.')),
+      h('button.btn.primary.block.lg', { onclick: finishSheet }, icon('flag'), t('Antrenmanı tamamla')),
+      h('button.btn.ghost.block', { onclick: discardDraft }, t(d.resumed ? 'Değişikliklerden vazgeç' : 'Antrenmanı sil'))));
   return page;
 }
 
 async function discardDraft() {
-  const ok = await confirmBox(t('Bu antrenman kaydedilmeden silinsin mi?'), { ok: t('Sil'), danger: true });
+  const ok = await confirmBox(t(state.draft?.resumed ? 'Devam ederken yaptığın değişiklikler silinsin mi? Tamamladığın antrenman olduğu gibi kalır.' : 'Bu antrenman kaydedilmeden silinsin mi?'), { ok: t('Sil'), danger: true });
   if (!ok) return;
   state.draft = null;
   save();
@@ -322,30 +351,108 @@ function cleanSet(s) {
   return o;
 }
 
-function finalize(doc) {
+// Boş kalan alanlar geçen seferki rakamlarla dolar (✓'ye basınca olduğu gibi).
+function fillFromPrev(st, j, e, prev) {
+  for (const f of FIELDS[e.type] || FIELDS.w) {
+    if (f.k === 'x' || st[f.k] != null) continue;
+    const ph = prev?.item.sets[j]?.[f.k] ?? prev?.item.sets[prev.item.sets.length - 1]?.[f.k];
+    if (ph != null) st[f.k] = ph;
+  }
+}
+
+// untick: antrenman biterken işaretlenmeyen setler pas geçilmiş sayılır.
+// Bu setler rakamlarıyla saklanır (bir dahakine plan aynı kalsın) ama istatistiğe girmez.
+function finalize(doc, { untick = false } = {}) {
   const s = clone(doc);
   s.items = s.items
-    .map((it) => ({
-      exId: it.exId, sets: it.sets.filter(hasValue).map(cleanSet), note: (it.note || '').trim(), skipped: !!it.skipped,
-      ...(it.bump ? { bump: true } : {}), ...(it.ss ? { ss: it.ss } : {}),
-    }))
+    .map((it) => {
+      let sets = it.sets;
+      if (untick) {
+        const e = ex(it.exId);
+        const prev = lastPerf(it.exId, { before: doc.date, excludeId: doc.id });
+        sets = sets.map((st, j) => {
+          if (st.done && !it.skipped) return st;
+          fillFromPrev(st, j, e, prev);
+          return { ...st, skip: true };
+        });
+      }
+      sets = sets.filter(hasValue).map((st) => ({ ...cleanSet(st), ...(st.skip || it.skipped ? { skip: true } : {}) }));
+      return {
+        exId: it.exId, sets, note: (it.note || '').trim(),
+        skipped: !!it.skipped || ((untick || sets.length > 0) && !sets.some(didSet)),
+        ...(it.bump ? { bump: true } : {}), ...(it.ss ? { ss: it.ss } : {}),
+      };
+    })
     .filter((it) => it.sets.length || it.skipped || it.note);
   s.note = (s.note || '').trim();
   if (!s.groups?.length) s.groups = sessionGroups(s);
   delete s.startedAt;
-  delete s.comebackDone;
+  delete s.comebackSeen;
+  delete s.resumed;
   return s;
+}
+
+function markAllDone(d) {
+  for (const it of d.items) {
+    if (it.skipped) continue;
+    const e = ex(it.exId);
+    const prev = lastPerf(it.exId, { before: d.date, excludeId: d.id });
+    it.sets.forEach((st, j) => {
+      fillFromPrev(st, j, e, prev);
+      if (hasValue(st)) st.done = true;
+    });
+  }
+}
+
+// Bitir düğmesi hemen kaydetmez: önce ne olacağını gösterir (yanlışlıkla basılabilir).
+function finishSheet() {
+  const d = state.draft;
+  if (!d.items.length) { saveDraft(); return; }
+  let total = 0, done = 0;
+  const missed = [];
+  for (const it of d.items) {
+    if (it.skipped) continue;
+    const n = it.sets.filter((st) => st.done).length;
+    total += it.sets.length;
+    done += n;
+    if (n < it.sets.length) missed.push({ name: ex(it.exId).short, n: it.sets.length - n, all: !n });
+  }
+  const miss = total - done;
+  const finish = () => { sh.close(); saveDraft(); };
+  const allDone = () => { markAllDone(d); save(); finish(); };
+  const back = h('button.btn.ghost.grow', { onclick: () => sh.close() }, t('Geri dön'));
+  const sh = sheet({
+    title: t('Antrenmanı tamamla'),
+    className: 'dialog',
+    body: h('div.finish', null,
+      h('div.finish-count', null, h('b', null, `${done}/${total}`), h('span.muted', null, t('set işaretli'))),
+      !done
+        ? h('p', null, t('Hiç set işaretlemedin. Yazılı rakamları yaptıysan "Hepsini yaptım" de.'))
+        : miss
+          ? h('div', null,
+            h('p', null, t('İşaretlenmeyenler pas geçilmiş sayılır: istatistiğe girmez, ama planın küçülmez. Bir dahaki antrenmanda yine önüne gelir ve "pas geçilmişti" yazar.')),
+            h('div.finish-miss', null, missed.map((m) => h('div', null, h('b', null, m.name), h('span.muted', null, m.all ? t('hepsi pas') : t('{n} set pas', { n: m.n }))))))
+          : h('p', null, t('Bütün setler tamam. Eline sağlık!')),
+      h('p.muted.small', null, t('Sadece uygulamayı kapatacaksan buna gerek yok; her şey zaten kayıtlı.'))),
+    footer: !done
+      ? h('div.row.gap', null, back, h('button.btn.primary.grow', { onclick: allDone }, t('Hepsini yaptım')))
+      : miss
+        ? h('div.stack', null,
+          h('button.btn.primary.block', { onclick: finish }, t('Tamamla, {n} set pas geçilsin', { n: miss })),
+          h('div.row.gap', null, back, h('button.btn.grow', { onclick: allDone }, t('Hepsini yaptım'))))
+        : h('div.row.gap', null, back, h('button.btn.primary.grow', { onclick: finish }, t('Tamamla'))),
+  });
 }
 
 async function saveDraft() {
   const d0 = state.draft;
-  const s = finalize(d0);
+  const s = finalize(d0, { untick: true });
   if (d0.date === today() && d0.startedAt) {
     const mins = Math.round((Date.now() - d0.startedAt) / 60000);
     if (mins >= 5 && mins <= 300) s.duration = mins;
   }
   if (!s.date) { toast(t('Tarih seç')); return; }
-  if (!s.items.length) {
+  if (!s.items.some((it) => !it.skipped && it.sets.some(didSet))) {
     if (s.bodyWeight) {
       const ok = await confirmBox(t('Hiç hareket girilmedi. Sadece kilo olarak kaydedilsin mi?'), { ok: t('Kilo olarak kaydet') });
       if (!ok) return;
@@ -356,7 +463,7 @@ async function saveDraft() {
       rerender();
       return;
     }
-    toast(t('Önce bir hareket ekle'));
+    toast(t(s.items.length ? 'Önce en az bir seti işaretle' : 'Önce bir hareket ekle'));
     return;
   }
   const prs = sessionPRs(s);
@@ -375,7 +482,7 @@ function summarySheet(s, prs) {
   let sets = 0, vol = 0;
   for (const it of s.items) {
     if (it.skipped) continue;
-    sets += it.sets.length;
+    sets += it.sets.filter(didSet).length;
     const e = ex(it.exId);
     if (e.type === 'w') vol += itemStats(it, 'w').vol;
   }
@@ -384,12 +491,13 @@ function summarySheet(s, prs) {
   if (prev) for (const it of prev.items) if (!it.skipped && ex(it.exId).type === 'w') prevVol += itemStats(it, 'w').vol;
   const diff = prevVol ? Math.round(((vol - prevVol) / prevVol) * 100) : null;
   const hasPlan = state.templates.some((t) => similarItems(t, s));
+  const pas = s.items.reduce((a, it) => a + it.sets.filter((st) => st.skip).length, 0);
   const sh = sheet({
-    title: t('Antrenman kaydedildi 💪'),
+    title: t('Antrenman tamamlandı 💪'),
     body: h('div', null,
       h('div.tiles', null,
         tile(t('Hareket'), s.items.filter((it) => !it.skipped).length, null, s.items.filter((it) => !it.skipped).length),
-        tile(t('Set sayısı'), sets, null, sets),
+        tile(t('Set sayısı'), sets, pas ? t('{n} set pas', { n: pas }) : null, sets),
         tile(t('Hacim'), `${compact(vol)} kg`, diff != null ? t('{diff}% geçen sefere göre', { diff: `${diff >= 0 ? '+' : ''}${diff}` }) : null, vol < 10000 ? vol : null, ' kg'),
         s.duration ? tile(t('Süre'), `${s.duration} ${dk()}`, null, s.duration, ` ${dk()}`) : null,
         s.bodyWeight ? tile(t('Kilo'), `${num(s.bodyWeight)} kg`) : null),
@@ -398,9 +506,11 @@ function summarySheet(s, prs) {
         h('h3', null, icon('trophy'), t(prs.length > 1 ? 'Yeni rekorlar' : 'Yeni rekor')),
         prs.map((p) => h('div.pr-row', null, h('b', null, ex(p.exId).name), h('span', null, p.prev ? `${p.prev} → ${p.label}` : p.label))))
         : h('p.muted', null, t('Bu sefer rekor yok; düzenli devam etmek de kazanç.'))),
-    footer: h('div.row.gap', null,
-      !hasPlan ? h('button.btn.grow', { onclick: () => { sh.close(); planFromSession(s); } }, t('Plan olarak kaydet')) : null,
-      h('button.btn.primary.grow', { onclick: () => sh.close() }, t('Tamam'))),
+    footer: h('div.stack', null,
+      h('div.row.gap', null,
+        !hasPlan ? h('button.btn.grow', { onclick: () => { sh.close(); planFromSession(s); } }, t('Plan olarak kaydet')) : null,
+        h('button.btn.primary.grow', { onclick: () => sh.close() }, t('Tamam'))),
+      s.date === today() ? h('button.btn.ghost.block.sm', { onclick: () => { sh.close(); resumeSession(getSession(s.id)); } }, icon('play'), t('Yanlışlıkla mı bastın? Devam et')) : null),
   });
   sh.el.querySelectorAll('[data-count]').forEach((el) => countUp(el, Number(el.dataset.count), { suffix: el.dataset.suffix || '' }));
 }
@@ -455,28 +565,17 @@ function Editor(doc, { mode, changed = () => {} }) {
     chips(GROUPS, doc.groups || [], (sel) => { doc.groups = sel; changed(); })));
   wrap.append(meta);
 
-  // Uzun aradan dönüş: ağırlıkları %75'e çekmeyi öner
-  if (mode === 'draft' && !doc.comebackDone) {
+  // Uzun aradan dönüş: ağırlıklar hareket hareket düşürüldü (bkz. withComeback); burada genel uyarı var
+  if (mode === 'draft' && !doc.comebackSeen && doc.items.some((it) => it.cb?.on)) {
     const day = doc.date || today();
-    const prevS = sessions().find((x) => x.date < day && x.items.length);
+    const prevS = sessions().find((x) => x.id !== doc.id && x.date < day && x.items.length);
     const gap = prevS ? daysBetween(prevS.date, day) : 0;
-    if (gap >= 21 && doc.items.some((it) => ex(it.exId).type === 'w' && it.sets.some((st) => st.w))) {
+    if (gap >= 15) {
       const banner = h('div.banner.comeback', null, icon('info'),
-        h('div.grow', null, h('b', null, t('{n} gündür ara verdin', { n: gap })), h('p.small', null, t("Sakatlanmamak için ağırlıkları %75'e düşürmek iyi bir başlangıç."))),
-        h('div.stack', null,
-          h('button.btn.sm.primary', { onclick: () => {
-            for (const it of doc.items) {
-              if (ex(it.exId).type !== 'w') continue;
-              for (const st of it.sets) if (st.w) st.w = st.w >= 20 ? Math.round((st.w * 0.75) / 2.5) * 2.5 : Math.round(st.w * 0.75 * 2) / 2;
-            }
-            doc.comebackDone = true;
-            changed();
-            paintItems();
-            banner.remove();
-            haptic(15);
-            toast(t("Ağırlıklar %75'e düşürüldü"));
-          } }, t('%75 yap')),
-          h('button.btn.sm.ghost', { onclick: () => { doc.comebackDone = true; changed(); banner.remove(); } }, t('Gerek yok'))));
+        h('div.grow', null,
+          h('b', null, t('{n} gündür ara verdin', { n: gap })),
+          h('p.small', null, t('Ağırlıkları her hareket için bu araya göre düşürdüm. Hamlık normal: ilk hafta tükenişe gitme, 2-3 tekrar yedekte bırak. Sonraki antrenmanlarda kademeli yükseltirim.'))),
+        h('button.btn.sm.primary', { onclick: () => { doc.comebackSeen = true; changed(); banner.remove(); } }, t('Anladım')));
       wrap.append(banner);
     }
   }
@@ -502,7 +601,9 @@ function Editor(doc, { mode, changed = () => {} }) {
       title: t('Hareket ekle'),
       groups: doc.groups,
       onPick: (id) => {
-        doc.items.push({ exId: id, sets: defaultSets(id, isPlan), note: '', skipped: false });
+        const item = { exId: id, sets: defaultSets(id, isPlan), note: '', skipped: false };
+        if (mode === 'draft') withComeback(item, { before: doc.date, excludeId: doc.id });
+        doc.items.push(item);
         changed();
         paintItems();
         haptic(10);
@@ -545,6 +646,12 @@ function ItemCard(doc, i, ctx) {
   const isPlan = ctx.mode === 'template';
   const prev = isPlan ? null : lastPerf(it.exId, { before: doc.date, excludeId: doc.id });
   const rec = isPlan ? null : records(it.exId, { excludeId: doc.id });
+  // Kayıtlı antrenmanı düzenlerken pas işareti olmayan her set yapılmış sayılır
+  const isSession = ctx.mode === 'session';
+  const isDone = (s) => (isSession ? !s.skip : !!s.done);
+  const setDone = (s, v) => {
+    if (isSession) { if (v) delete s.skip; else s.skip = true; } else if (v) s.done = true; else delete s.done;
+  };
   const card = h('div.ex-card' + (it.skipped ? '.skipped' : '') + (it.ss ? '.in-ss' : ''));
 
   const more = h('button.icon-btn', { 'aria-label': t('Hareket seçenekleri'), onclick: () => menu(e.name, [
@@ -573,6 +680,9 @@ function ItemCard(doc, i, ctx) {
       e.setup ? h('button.setup', { onclick: () => editSetup(it.exId, ctx.repaint) }, icon('wrench'), e.setup) : null),
     more));
 
+  // Aradan dönüş: düşürülen ağırlık ve geri alma
+  if (it.cb && !isPlan && !it.skipped) card.append(comebackChip(it, e, ctx));
+
   // Ağırlık önerisi
   const sug = !isPlan && !it.skipped ? suggestIncrease(it.exId, { before: doc.date, excludeId: doc.id }) : null;
   const curMax = Math.max(0, ...it.sets.map((st) => st.w || 0));
@@ -583,11 +693,18 @@ function ItemCard(doc, i, ctx) {
       ctx.changed();
       ctx.repaint();
       toast(t('{name}: {w} kg, hadi!', { name: e.short, w: num(sug.to) }));
-    } }, icon('up'), h('span', null, h('b', null, t('{w} kg dene', { w: num(sug.to) })), h('small', null, t(sug.flagged ? 'geçen sefer "artır" demiştin' : 'geçen sefer tüm setler tamamdı')))));
+    } }, icon('up'), h('span', null, h('b', null, t('{w} kg dene', { w: num(sug.to) })), h('small', null, sug.ramp ? t('kademeli dönüş · ara öncesi {kg} kg', { kg: num(sug.ramp) }) : t(sug.flagged ? 'geçen sefer "artır" demiştin' : 'geçen sefer tüm setler tamamdı')))));
   }
   if (it.bump) card.append(h('button.bump-badge', { onclick: () => { delete it.bump; ctx.changed(); ctx.repaint(); } }, icon('up'), t('Bir dahakine artırılacak')));
 
   if (it.skipped) card.append(h('div.skip-badge', null, icon('skip'), t('Pas geçildi')));
+  else if (ctx.mode === 'draft') {
+    // Geçen sefer pas geçilen hareket ya da setler söylenir
+    const seen = lastSeen(it.exId, { before: doc.date, excludeId: doc.id });
+    const pas = seen ? seen.item.sets.filter((s) => s.skip).length : 0;
+    if (seen?.item.skipped) card.append(h('div.skip-badge', null, icon('skip'), t('Geçen sefer ({d}) pas geçilmişti', { d: fmtDate(seen.date) })));
+    else if (pas) card.append(h('div.skip-badge', null, icon('skip'), t('Geçen sefer ({d}) {n} set pas geçilmişti', { d: fmtDate(seen.date), n: pas })));
+  }
 
   // Setler
   const table = h('div.sets' + (isPlan ? '.plan' : ''), { style: `--cols:${fields.length}` });
@@ -596,21 +713,22 @@ function ItemCard(doc, i, ctx) {
   let celebrated = false;
   const onCheck = (set, j, row, check, inputs) => {
     unlockAudio();
-    if (!set.done) {
+    if (!isDone(set)) {
       for (const f of fields) {
         if (f.k === 'x' || set[f.k] != null) continue;
         const ph = prev?.item.sets[j]?.[f.k] ?? prev?.item.sets[prev.item.sets.length - 1]?.[f.k];
         if (ph != null) { set[f.k] = ph; inputs[f.k].value = num(ph); }
       }
     }
-    if (set.done) delete set.done; else set.done = true;
-    row.classList.toggle('done', !!set.done);
-    check.classList.toggle('done', !!set.done);
-    check.setAttribute('aria-pressed', String(!!set.done));
+    setDone(set, !isDone(set));
+    const on = isDone(set);
+    row.classList.toggle('done', on);
+    check.classList.toggle('done', on);
+    check.setAttribute('aria-pressed', String(on));
     pop(check);
-    haptic(set.done ? 18 : 6);
+    haptic(on ? 18 : 6);
     ctx.changed();
-    if (!set.done) return;
+    if (!on) return;
     const reps = (set.r || 0) + (set.x || 0);
     const isPR = !celebrated && rec && ((e.type === 'w' && rec.maxW && set.w > rec.maxW) || (e.type === 'bw' && rec.maxR && reps > rec.maxR));
     if (isPR) {
@@ -629,13 +747,14 @@ function ItemCard(doc, i, ctx) {
   };
 
   it.sets.forEach((set, j) => {
-    const row = h('div.set-row' + (set.done ? '.done' : ''));
+    const row = h('div.set-row' + (!isPlan && isDone(set) ? '.done' : ''));
     const inputs = {};
     const markPR = () => {
       const pr = e.type === 'w' && rec?.maxW && set.w > rec.maxW;
       row.classList.toggle('pr', !!pr);
     };
-    row.append(h('span.set-no', null, String(j + 1)));
+    const wasSkip = ctx.mode === 'draft' && prev?.item.sets[j]?.skip;
+    row.append(h('span.set-no' + (wasSkip ? '.was-skip' : ''), wasSkip ? { title: t('Geçen sefer bu set pas geçilmişti'), dataset: { pas: t('pas') } } : null, String(j + 1)));
     for (const f of fields) {
       const ph = prev?.item.sets[j]?.[f.k] ?? prev?.item.sets[prev.item.sets.length - 1]?.[f.k];
       const input = h('input.set-in' + (f.small ? '.small' : ''), {
@@ -690,7 +809,7 @@ function ItemCard(doc, i, ctx) {
       } else row.append(cell);
     }
     if (!isPlan) {
-      const check = h('button.set-check' + (set.done ? '.done' : ''), { type: 'button', 'aria-label': t('{n}. seti tamamla', { n: j + 1 }), 'aria-pressed': String(!!set.done) }, icon('check'));
+      const check = h('button.set-check' + (isDone(set) ? '.done' : ''), { type: 'button', 'aria-label': t('{n}. seti tamamla', { n: j + 1 }), 'aria-pressed': String(isDone(set)) }, icon('check'));
       check.addEventListener('click', () => onCheck(set, j, row, check, inputs));
       row.append(check);
     }
@@ -722,9 +841,47 @@ function ItemCard(doc, i, ctx) {
   card.append(h('div.ex-actions', null,
     h('button.btn.sm.ghost', { onclick: () => { const last = it.sets[it.sets.length - 1]; it.sets.push(last ? cleanSet(last) : {}); ctx.changed(); ctx.repaint(); } }, icon('plus'), t('Set')),
     h('button.btn.sm.ghost', { onclick: () => { noteWrap.hidden = false; noteInput.focus(); } }, icon('note'), t('Not')),
-    !isPlan ? h('button.btn.sm.ghost' + (it.skipped ? '.on' : ''), { onclick: () => { it.skipped = !it.skipped; ctx.changed(); ctx.repaint(); } }, icon('skip'), t(it.skipped ? 'Pas geri al' : 'Pas geç')) : null,
+    !isPlan ? h('button.btn.sm.ghost' + (it.skipped ? '.on' : ''), { onclick: () => { it.skipped = !it.skipped; if (!it.skipped) it.sets.forEach((st) => delete st.skip); ctx.changed(); ctx.repaint(); } }, icon('skip'), t(it.skipped ? 'Pas geri al' : 'Pas geç')) : null,
     h('button.btn.sm.ghost', { onclick: () => swapItem(doc, i, ctx) }, icon('swap'), t('Değiştir'))));
   return card;
+}
+
+// "Şu kadar haftadır / aydır"
+function agoText(days) {
+  return days < 60 ? t('{n} haftadır', { n: Math.round(days / 7) }) : t('{n} aydır', { n: Math.round(days / 30) });
+}
+
+function comebackChip(it, e, ctx) {
+  const cb = it.cb;
+  const apply = (on) => {
+    cb.on = on;
+    const src = on ? cb.low : cb.orig;
+    it.sets.forEach((st, j) => {
+      if (!src[j]) return;
+      for (const k of ['w', 'r', 'x', 't']) {
+        if (src[j][k] == null) delete st[k];
+        else st[k] = src[j][k];
+      }
+    });
+    haptic(10);
+    ctx.changed();
+    ctx.repaint();
+  };
+  if (!cb.on) {
+    return h('div.comeback-chip.off', null, icon('info'),
+      h('span.grow', null, h('small', null, t('Eski rakamlar yazılı. {ago} ara verdin, dikkatli ol.', { ago: agoText(cb.exDays) }))),
+      h('button.btn.sm', { type: 'button', onclick: () => apply(true) }, t('Düşür')));
+  }
+  const topOf = (list, k = 'w') => Math.max(0, ...list.map((s) => s[k] || 0));
+  const low = topOf(cb.low), old = topOf(cb.orig), oldR = topOf(cb.orig, 'r');
+  const why = cb.alt
+    ? t('{ago} yapmadın, bölgeye başka hareketlerle çalıştın', { ago: agoText(cb.exDays) })
+    : t('Bu bölgeye {ago} çalışmadın', { ago: agoText(cb.groupDays) });
+  return h('div.comeback-chip', null, icon('down'),
+    h('span.grow', null,
+      h('b', null, low ? t('{w} kg ile başla', { w: num(low) }) : t(e.type === 'time' ? 'Daha kısa tut' : 'Daha az tekrarla başla')),
+      h('small', null, why + (old ? ` · ${t('önceki {w} kg', { w: num(old) })}` : e.type === 'bw' && oldR ? ` · ${t('önceki {n} tekrar', { n: oldR })}` : ''))),
+    h('button.btn.sm.ghost', { type: 'button', onclick: () => apply(false) }, t('Eskisi')));
 }
 
 function toggleSuperset(doc, i) {
@@ -767,7 +924,9 @@ function swapItem(doc, i, ctx) {
     onPick: (id) => {
       const last = ctx.mode === 'template' ? null : lastPerf(id);
       it.exId = id;
+      delete it.cb;
       if (last) it.sets = clone(last.item.sets).map(cleanSet);
+      if (ctx.mode === 'draft') withComeback(it, { before: ctx.doc.date, excludeId: ctx.doc.id });
       ctx.changed();
       ctx.repaint();
     },
@@ -803,7 +962,7 @@ function pickExercise({ title, groups = [], onPick, exclude }) {
   function paint() {
     const nq = norm(q);
     let list = exercises().filter((e) => !e.hidden && e.id !== exclude);
-    if (nq) list = list.filter((e) => [e.name, e.short, ...(e.aliases || [])].some((s) => norm(s).includes(nq)));
+    if (nq) list = list.filter((e) => [e.name, e.short, e.focus, ...(e.aliases || [])].some((s) => s && norm(s).includes(nq)));
     else if (sel.length) list = list.filter((e) => e.groups.some((g) => sel.includes(g)));
     list.sort((a, b) => usageCount(b.id) - usageCount(a.id) || a.name.localeCompare(b.name, getLang()));
     listEl.replaceChildren(...list.map((e) => {
@@ -811,7 +970,7 @@ function pickExercise({ title, groups = [], onPick, exclude }) {
       const last = lastPerf(e.id);
       return h('button.pick-row', { onclick: () => { sh.close(); onPick(e.id); } },
         animBox(e.id, 'sm'),
-        h('span.grow', null, h('b', null, e.name), h('span.muted.small', null, [e.short, e.groups.map((g) => GROUP_NAME[g]).join(', ')].join(' · ')),
+        h('span.grow', null, h('b', null, e.name), h('span.muted.small', null, [e.short, e.groups.map((g) => GROUP_NAME[g]).join(', '), e.focus].filter(Boolean).join(' · ')),
           last ? h('span.small.ex-prev', null, `${t('Son: ')}${summarize(last.item, e.type)} · ${fmtDate(last.date)}`) : null),
         n ? h('span.count', null, `${n}×`) : null);
     }));
@@ -830,7 +989,7 @@ function exerciseDetail(id) {
   body.append(h('div.anim-hero', null, animBox(id, 'lg')));
   body.append(h('div.center', null,
     h('h3.ex-name', null, e.name),
-    h('p.muted', null, [e.short !== e.name && e.short, ...e.groups.map((g) => GROUP_NAME[g]), TYPES.find((ty) => ty.id === e.type)?.name].filter(Boolean).join(' · '))));
+    h('p.muted', null, [e.short !== e.name && e.short, ...e.groups.map((g) => GROUP_NAME[g]), e.focus, TYPES.find((ty) => ty.id === e.type)?.name].filter(Boolean).join(' · '))));
   if (e.tip) body.append(h('p.tip', null, icon('info'), e.tip));
   if (e.setup) body.append(h('p.tip.setup-tip', null, icon('wrench'), e.setup));
   if (hist.length) {
@@ -986,16 +1145,19 @@ function sessionDetail(id) {
       animBox(it.exId, 'sm'),
       h('div.grow', null,
         h('b', null, e.name, it.skipped ? h('span.tag', null, t('pas')) : null),
-        h('div.detail-sets', null, it.sets.filter(hasValue).map((st, j) => h('span', null, `${j + 1}. ${setText(st, e.type)}`))),
+        h('div.detail-sets', null, it.sets.filter(hasValue).map((st, j) => h('span' + (st.skip ? '.pas' : ''), null, `${j + 1}. ${setText(st, e.type)}${st.skip ? ` · ${t('pas')}` : ''}`))),
         it.note ? h('p.muted.small', null, `“${it.note}”`) : null)));
   }
   if (s.note) body.append(h('p.session-note.big', null, s.note));
   const sh = sheet({
     title: fmtDate(s.date, { weekday: true, long: true, year: true }), body,
     footer: h('div.row.gap', null,
-      h('button.btn.primary.grow', { onclick: () => { sh.close(); startFromSession(s); } }, icon('copy'), t('Kopyala, başlat')),
+      s.date === today()
+        ? h('button.btn.primary.grow', { onclick: () => { sh.close(); resumeSession(s); } }, icon('play'), t('Antrenmana devam et'))
+        : h('button.btn.primary.grow', { onclick: () => { sh.close(); startFromSession(s); } }, icon('copy'), t('Kopyala, başlat')),
       h('button.btn', { onclick: () => { sh.close(); editSession(s.id); } }, icon('edit'), t('Düzenle')),
       h('button.icon-btn', { 'aria-label': t('Diğer'), onclick: () => menu(t('Antrenman'), [
+        s.date === today() && { label: t('Kopyala, başlat'), icon: 'copy', action: () => { sh.close(); startFromSession(s); } },
         { label: t('Plan olarak kaydet'), icon: 'file', action: () => { sh.close(); planFromSession(s); } },
         { label: t('Metin olarak kopyala'), icon: 'copy', action: () => copyText(s) },
         { label: t('Sil'), icon: 'trash', danger: true, action: async () => {
@@ -1103,6 +1265,7 @@ function ProgressView() {
     page.append(empty(t('Grafikler için önce birkaç antrenman kaydet ya da eski notlarını içe aktar.'), h('button.btn.primary', { onclick: () => importSheet() }, t('Eski notlarımı içe aktar'))));
     return page;
   }
+  page.append(heroCard());
   const td = today();
   const year = td.slice(0, 4);
   const yearCount = all.filter((s) => s.date.startsWith(year)).length;

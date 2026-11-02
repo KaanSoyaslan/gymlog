@@ -9,7 +9,7 @@ const KEY = DEMO ? 'gymlog.demo.v1' : 'gymlog.v1';
 function blank() {
   return {
     v: 1,
-    sessions: [],   // { id, date, bodyWeight, groups, items: [{ exId, sets: [{ w, r, x, t, d }], note, skipped }], note, mood, createdAt, updatedAt }
+    sessions: [],   // { id, date, bodyWeight, groups, items: [{ exId, sets: [{ w, r, x, t, d, skip }], note, skipped }], note, mood, createdAt, updatedAt }
     templates: [],  // { id, name, groups, items: [{ exId, sets }] }
     weighIns: [],   // { date, kg } — antrenman olmayan günlerde girilen kilo
     customEx: [],   // kullanıcının eklediği hareketler
@@ -58,8 +58,17 @@ export function save() {
 let timer = 0;
 export function saveSoon() {
   clearTimeout(timer);
-  timer = setTimeout(save, 300);
+  timer = setTimeout(() => { timer = 0; save(); }, 300);
 }
+// Uygulama arkaya atılınca bekleyen kayıt kaybolmasın
+function flush() {
+  if (!timer) return;
+  clearTimeout(timer);
+  timer = 0;
+  save();
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
+window.addEventListener('pagehide', flush);
 export function commit() {
   rev++;
   save();
@@ -79,7 +88,7 @@ function localize(e) {
   const name = en ? e.nameEn || e.name : e.name;
   const short = en ? e.shortEn || e.short : e.short;
   const other = [e.name, e.nameEn, e.short, e.shortEn].filter((x) => x && x !== name && x !== short);
-  return { ...e, name, short, tip: en ? e.tipEn || e.tip : e.tip, aliases: [...new Set([...(e.aliases || []), ...other])] };
+  return { ...e, name, short, tip: en ? e.tipEn || e.tip : e.tip, focus: en ? e.focusEn || e.focus : e.focus, aliases: [...new Set([...(e.aliases || []), ...other])] };
 }
 export function exercises() {
   return cached('ex:' + getLang(), () => {
@@ -146,13 +155,15 @@ export function exHistory(exId) {
     const out = [];
     for (const s of sessions()) {
       s.items.forEach((it, i) => {
-        if (it.exId === exId && !it.skipped && it.sets.some(hasValue)) out.push({ date: s.date, sessionId: s.id, item: it, order: (s.createdAt || 0) + i });
+        if (it.exId === exId && !it.skipped && it.sets.some(didSet)) out.push({ date: s.date, sessionId: s.id, item: it, order: (s.createdAt || 0) + i });
       });
     }
     return out.reverse();
   });
 }
 export const hasValue = (set) => ['w', 'r', 't', 'd'].some((k) => set[k] != null);
+// Gerçekten yapılan set: pas geçilen setler plan olarak saklanır ama istatistiğe girmez.
+export const didSet = (set) => hasValue(set) && !set.skip;
 
 // Verilen tarihten önceki son performans (aynı antrenman hariç).
 export function lastPerf(exId, { before, excludeId } = {}) {
@@ -166,11 +177,22 @@ export function lastPerf(exId, { before, excludeId } = {}) {
   return null;
 }
 
+// Bir hareketin en son göründüğü antrenman (pas geçilmiş olsa bile).
+export function lastSeen(exId, { before, excludeId } = {}) {
+  for (const s of sessions()) {
+    if (s.id === excludeId || (before && s.date > before)) continue;
+    const item = s.items.find((it) => it.exId === exId);
+    if (item) return { date: s.date, item };
+  }
+  return null;
+}
+
 export const e1rm = (w, r) => (!w || !r ? 0 : r === 1 ? w : w * (1 + r / 30));
 
 export function itemStats(item, type) {
   let maxW = 0, vol = 0, reps = 0, best = null, bestE1 = 0, maxR = 0, time = 0, dist = 0;
   for (const s of item.sets) {
+    if (s.skip) continue;
     const r = (s.r || 0) + (s.x || 0);
     reps += r;
     if (r > maxR) maxR = r;
@@ -208,7 +230,7 @@ export function records(exId, { before, excludeId } = {}) {
 export function sessionPRs(s) {
   const out = [];
   for (const it of s.items) {
-    if (it.skipped || !it.sets.some(hasValue)) continue;
+    if (it.skipped || !it.sets.some(didSet)) continue;
     const e = ex(it.exId);
     const prev = records(it.exId, { before: s.date, excludeId: s.id });
     if (!exHistory(it.exId).some((h) => h.date < s.date && h.sessionId !== s.id)) continue; // ilk kez yapılan hareket rekor sayılmaz
@@ -338,12 +360,15 @@ export function itemsFromTemplate(t) {
   return t.items.map((it) => {
     const last = lastPerf(it.exId);
     const sets = last ? clone(last.item.sets).map(({ w, r, x, t: tt, d }) => ({ w, r, x, t: tt, d })) : clone(it.sets);
-    return { exId: it.exId, sets: sets.length ? sets : [{}], note: '', skipped: false, ...(it.ss ? { ss: it.ss } : {}) };
+    return withComeback({ exId: it.exId, sets: sets.length ? sets : [{}], note: '', skipped: false, ...(it.ss ? { ss: it.ss } : {}) });
   });
 }
 
 export function itemsFromSession(s) {
-  return s.items.map((it) => ({ exId: it.exId, sets: clone(it.sets).map(({ w, r, x, t, d }) => ({ w, r, x, t, d })), note: '', skipped: false, ...(it.ss ? { ss: it.ss } : {}) }));
+  return s.items.map((it) => {
+    const sets = clone(it.sets).map(({ w, r, x, t, d }) => ({ w, r, x, t, d }));
+    return withComeback({ exId: it.exId, sets: sets.length ? sets : [{}], note: '', skipped: false, ...(it.ss ? { ss: it.ss } : {}) });
+  });
 }
 
 export const groupName = (g) => GROUP_NAME[g] || g;
@@ -351,22 +376,140 @@ export const groupName = (g) => GROUP_NAME[g] || g;
 // ---------- Antrenman sırasında ----------
 export const restFor = (exId) => Number(ex(exId).rest) || state.settings.restDefault || 90;
 
-// Geçen sefer bütün setler aynı tekrarla bittiyse (ya da "bir dahakine artır" işaretlendiyse) bir üst ağırlığı önerir.
-// Üst ağırlık, bu harekette daha önce kullandığın ağırlıklardan seçilir (makine kademeleri için); yoksa olağan artış eklenir.
-export function suggestIncrease(exId, opts = {}) {
-  if (ex(exId).type !== 'w') return null;
-  const last = lastPerf(exId, opts);
-  if (!last) return null;
-  const sets = last.item.sets.filter((s) => s.w != null && s.r != null);
-  if (!sets.length) return null;
-  const top = Math.max(...sets.map((s) => s.w));
-  const clean = sets.length >= 2 && sets.every((s) => !s.x && s.r >= sets[0].r);
-  if (!last.item.bump && !clean) return null;
-  const used = [...new Set(exHistory(exId).flatMap((h) => h.item.sets.map((s) => s.w)).filter((w) => w != null))].sort((a, b) => a - b);
+// Bu harekette kullanılan ağırlıklar ve olağan artış adımı (makine kademeleri için).
+function weightInfo(exId) {
+  const used = [...new Set(exHistory(exId).flatMap((h) => h.item.sets.filter((s) => !s.skip).map((s) => s.w)).filter((w) => w != null))].sort((a, b) => a - b);
   const diffs = [];
   for (let i = 1; i < used.length; i++) diffs.push(used[i] - used[i - 1]);
   diffs.sort((a, b) => a - b);
-  const step = Math.min(5, Math.max(1, diffs.length ? diffs[Math.floor(diffs.length / 2)] : 2.5));
+  return { used, step: Math.min(5, Math.max(1, diffs.length ? diffs[Math.floor(diffs.length / 2)] : 2.5)) };
+}
+
+// Hedefe en yakın, kullanılabilir ağırlık: önce daha önce kullandıkların, yoksa adımın katı.
+function snapWeight(exId, target) {
+  const { used, step } = weightInfo(exId);
+  const near = used.filter((w) => w <= target + 0.01 && target - w < step * 0.75).pop();
+  if (near != null) return near;
+  return Math.max(step, Math.round((Math.round(target / step) * step) * 4) / 4);
+}
+
+// ---------- Aradan dönüş ----------
+// Temkinli bir kural: güç 2 hafta kadar korunur, sonra ara uzadıkça başlangıç ağırlığı düşer.
+// [bölgeye çalışılmayan gün, önceki ağırlığın oranı]
+const RETAIN = [[14, 1], [21, 0.93], [28, 0.87], [42, 0.8], [56, 0.75], [84, 0.68], [112, 0.62], [182, 0.55], [365, 0.5]];
+function retain(days) {
+  if (days <= RETAIN[0][0]) return 1;
+  for (let i = 1; i < RETAIN.length; i++) {
+    const [d1, v1] = RETAIN[i];
+    if (days <= d1) {
+      const [d0, v0] = RETAIN[i - 1];
+      return v0 + (v1 - v0) * ((days - d0) / (d1 - d0));
+    }
+  }
+  return RETAIN[RETAIN.length - 1][1];
+}
+
+// Bir bölgeye son çalışılan gün. Yardımcı bölge olarak çalışmak (ör. barfikste biceps) daha az sayılır.
+function daysSinceGroup(group, day, excludeId) {
+  let main = null, side = null;
+  for (const s of sessions()) {
+    if (s.id === excludeId || s.date > day) continue;
+    for (const it of s.items) {
+      if (it.skipped || !it.sets.some(didSet)) continue;
+      const i = ex(it.exId).groups.indexOf(group);
+      if (i === 0 && main == null) main = s.date;
+      else if (i > 0 && side == null) side = s.date;
+    }
+    if (main) break;
+  }
+  const a = main ? daysBetween(main, day) : Infinity;
+  const b = side ? daysBetween(side, day) * 2 : Infinity;
+  return { days: Math.min(a, b), last: main || side };
+}
+
+// Bu harekete dönerken ağırlık ne kadar düşmeli? Ara yoksa null.
+// Bölgeye başka hareketle çalışıldıysa kas korunmuştur; o zaman sadece harekete yabancılaşma payı kalır.
+export function comebackInfo(exId, { before, excludeId } = {}) {
+  const e = ex(exId);
+  if (e.type === 'cardio') return null;
+  const day = before || today();
+  const last = lastPerf(exId, { before: day, excludeId });
+  if (!last) return null;
+  const exDays = daysBetween(last.date, day);
+  if (exDays <= 14) return null;
+  const group = e.groups[0];
+  const g = group ? daysSinceGroup(group, day, excludeId) : { days: exDays, last: last.date };
+  const groupDays = Math.min(g.days, exDays);
+  const skillLoss = exDays >= 84 ? 0.85 : exDays >= 42 ? 0.9 : exDays >= 21 ? 0.95 : 1;
+  let factor = Math.min(retain(groupDays), skillLoss);
+  if (factor >= 1) return null;
+  // Aradan önceki düzen: düzenli çalışan daha çabuk toparlar, yeni başlamış olan daha temkinli başlar.
+  const ref = g.last || last.date;
+  const regular = sessions().filter((s) => s.date <= ref && daysBetween(s.date, ref) < 84 && s.id !== excludeId
+    && s.items.some((it) => !it.skipped && it.sets.some(didSet) && ex(it.exId).groups[0] === group)).length;
+  if (regular >= 18) factor += 0.03;
+  else if (regular <= 4) factor -= 0.04;
+  factor = Math.max(0.45, Math.min(1, factor));
+  if (factor >= 0.985) return null;
+  return { factor, exDays, groupDays, alt: groupDays < exDays - 7 };
+}
+
+const CB_KEYS = ['w', 'r', 'x', 't'];
+const pickCb = (st) => Object.fromEntries(CB_KEYS.filter((k) => st[k] != null).map((k) => [k, st[k]]));
+
+// Taslağa eklenen hareketin rakamlarını aranın süresine göre düşürür; eski rakamlar geri alınabilsin diye saklanır.
+export function withComeback(item, opts = {}) {
+  const info = comebackInfo(item.exId, opts);
+  if (!info) return item;
+  const type = ex(item.exId).type;
+  const orig = item.sets.map(pickCb);
+  for (const st of item.sets) {
+    if (st.w) st.w = snapWeight(item.exId, st.w * info.factor);
+    if (type === 'bw' && !st.w && st.r) st.r = Math.max(1, Math.round(st.r * info.factor));
+    if (type === 'time' && st.t) st.t = Math.max(5, Math.round((st.t * info.factor) / 5) * 5);
+    if (info.factor < 0.9) delete st.x; // ilk dönüşte drop yok
+  }
+  const low = item.sets.map(pickCb);
+  if (JSON.stringify(low) === JSON.stringify(orig)) return item;
+  item.cb = { ...info, orig, low, on: true };
+  return item;
+}
+
+// Dönüş sürecindeysen: aradan önceki ağırlığa henüz ulaşılmadı. Yükseliş kademeli olur.
+function rampInfo(exId, { before, excludeId } = {}) {
+  const h = exHistory(exId).filter((x) => x.sessionId !== excludeId && (!before || x.date <= before));
+  if (h.length < 2) return null;
+  const top = (x) => Math.max(0, ...x.item.sets.filter((s) => !s.skip).map((s) => s.w || 0));
+  const cur = top(h[h.length - 1]);
+  for (let i = h.length - 1; i > 0 && i >= h.length - 12; i--) {
+    const days = daysBetween(h[i - 1].date, h[i].date);
+    if (days <= 14) continue;
+    const peak = top(h[i - 1]);
+    return peak && cur < peak * 0.975 ? { peak, days } : null;
+  }
+  return null;
+}
+
+// Geçen sefer bütün setler aynı tekrarla bittiyse (ya da "bir dahakine artır" işaretlendiyse) bir üst ağırlığı önerir.
+// Üst ağırlık, bu harekette daha önce kullandığın ağırlıklardan seçilir (makine kademeleri için); yoksa olağan artış eklenir.
+// Uzun aradan sonra artış önerilmez; dönüş sürecinde ise aradan önceki ağırlığa kademeli yaklaşılır.
+export function suggestIncrease(exId, opts = {}) {
+  if (ex(exId).type !== 'w') return null;
+  const last = lastPerf(exId, opts);
+  if (!last || comebackInfo(exId, opts)) return null;
+  const sets = last.item.sets.filter((s) => !s.skip && s.w != null && s.r != null);
+  if (!sets.length) return null;
+  const top = Math.max(...sets.map((s) => s.w));
+  const clean = sets.length >= 2 && !last.item.sets.some((s) => s.skip) && sets.every((s) => !s.x && s.r >= sets[0].r);
+  if (!last.item.bump && !clean) return null;
+  const { used, step } = weightInfo(exId);
+  const ramp = rampInfo(exId, opts);
+  if (ramp) {
+    const rate = ramp.days >= 84 ? 0.06 : 0.08;
+    let to = snapWeight(exId, Math.min(ramp.peak, top + Math.max(step, ramp.peak * rate)));
+    if (to <= top) to = Math.round((top + step) * 4) / 4;
+    return { from: top, to, flagged: !!last.item.bump, ramp: ramp.peak };
+  }
   let to = used.find((w) => w > top + 0.01);
   if (to == null || to - top > step * 1.6) to = Math.round((top + step) * 4) / 4;
   return { from: top, to, flagged: !!last.item.bump };
@@ -394,7 +537,7 @@ export function groupSets(list) {
   for (const s of list) {
     for (const it of s.items) {
       if (it.skipped) continue;
-      const n = it.sets.filter(hasValue).length;
+      const n = it.sets.filter(didSet).length;
       ex(it.exId).groups.forEach((g, i) => m.set(g, (m.get(g) || 0) + (i === 0 ? n : n / 2)));
     }
   }

@@ -1,5 +1,5 @@
 // Uygulama dosyalarını önbelleğe alır; önce ağdan dener ki güncellemeler hemen gelsin, salonda internet yoksa önbellekten açılır.
-const CACHE = 'gymlog-v6';
+const CACHE = 'gymlog-v7';
 const ASSETS = [
   './',
   'index.html',
@@ -11,6 +11,7 @@ const ASSETS = [
   'js/demo.js',
   'js/exercises.js',
   'js/format.js',
+  'js/hero.js',
   'js/hype.js',
   'js/i18n.js',
   'js/importer.js',

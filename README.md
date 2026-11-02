@@ -19,11 +19,11 @@
 
 <p align="center">
   <img src="docs/screenshots/home.jpg" alt="Workout tab: this week's goal with training days, the suggested next plan and saved plans" width="200">
-  <img src="docs/screenshots/workout.jpg" alt="Logging a workout: weight, reps with −/+ buttons and drop reps per set, ticked sets, the hype button and the rest timer counting down" width="200">
+  <img src="docs/screenshots/workout.jpg" alt="Logging a workout: weight, reps with −/+ buttons and drop reps per set, ticked sets, the hype button and the rest timer with its frame counting down" width="200">
   <img src="docs/screenshots/history.jpg" alt="History: workouts grouped by month in the same short format as the old notes" width="200">
 </p>
 <p align="center">
-  <img src="docs/screenshots/progress.jpg" alt="Progress: weekly goal with a 12-week chart and a muscle map of the last 7 days" width="200">
+  <img src="docs/screenshots/progress.jpg" alt="Progress: a flexing character whose muscles grow and change colour with your training, above the yearly workout count" width="200">
   <img src="docs/screenshots/library.jpg" alt="Exercise library with an animation for every exercise" width="200">
   <img src="docs/screenshots/detail.jpg" alt="Exercise detail: animation, tip, best set and estimated one-rep max" width="200">
 </p>
@@ -48,7 +48,9 @@ It is a progressive web app (PWA): it runs in the phone's browser, can be instal
 
 **In the gym**
 - Tick off each set as you go. Ticking an empty set fills in last time's numbers. Deleting a set asks first, so a slip of the finger next to the tick cannot remove it.
-- A rest timer starts automatically, with vibration and a sound when it ends. The default (60 s to 3 min) can be set globally and per exercise, and −15/+15 buttons adjust it on the fly.
+- Everything saves automatically, so you can leave the app at any time. **Finish workout** first shows what will happen: unticked sets count as skipped. They stay out of your stats, but your plan does not shrink: next time the same sets are there, marked "skipped last time".
+- Finished by mistake, or went home and came back? A workout from today can be continued from the Workout tab or from History: ticked sets stay ticked and the clock carries on where it stopped.
+- A rest timer starts automatically, with vibration and a sound when it ends. The default (60 s to 3 min) can be set globally and per exercise, and −15/+15 buttons adjust it on the fly. The time left runs around the frame of the timer box and on a ring with a small resting figure inside.
 - The screen stays on during a workout, and a clock shows how long you have been training. The duration is saved with the workout.
 - Supersets: link an exercise with the next one. Ticking a set jumps to the next exercise in the superset; the rest timer starts after the last one.
 - Machine setup notes (for example "seat 4, chest pad 2") are shown on the exercise every time.
@@ -57,7 +59,7 @@ It is a progressive web app (PWA): it runs in the phone's browser, can be instal
 **Progression**
 - Weight suggestions: if you finished every set last time, GymLog offers the next weight with one tap. It picks the next weight you have actually used on that exercise (so it matches the machine's weight stack), otherwise it adds your usual step.
 - Mark an exercise "increase next time" and the suggestion is waiting for you in the next workout.
-- After three weeks or more without training, it offers to start at 75% of your weights.
+- Coming back from a break: after more than two weeks away, each exercise starts lighter. The drop depends on how long that muscle group went untrained (about 87% of your old weight after 4 weeks, 75% after 8, 55% after 6 months), on whether you trained the area with other exercises in the meantime, and on how regularly you trained before the break. You can switch back to the old numbers with one tap. After that, weights climb step by step towards your pre-break level instead of jumping back. This is a cautious rule of thumb, not medical advice.
 - A new record is celebrated with confetti the moment you tick the set, and the save summary shows your records, volume, duration and a map of the muscles you worked.
 
 **Copy and plans**
@@ -66,10 +68,12 @@ It is a progressive web app (PWA): it runs in the phone's browser, can be instal
 - "Next up" suggests the plan you haven't done for the longest time, and plans can be suggested automatically from your history.
 
 **Exercises**
-- 56 built-in exercises, each with an animated figure showing the movement, the target muscles highlighted, and a short form tip.
-- Add your own exercises: name, abbreviation, muscle groups, type and one of 54 animations. Built-in exercises can be renamed or hidden.
+- 124 built-in exercises, each with an animated figure showing the movement, the target muscles highlighted, and a short form tip.
+- Exercises name the part of the muscle they focus on (long head, upper chest, side delts, hamstrings…), and you can search by it.
+- Add your own exercises: name, abbreviation, muscle groups, type and one of 97 animations. Built-in exercises can be renamed or hidden.
 
 **Progress**
+- A flexing character at the top of the page: each muscle's size follows your last 12 weeks of training and its colour your last 7 days, so skipping leg day shows. It runs through bodybuilding poses and turns around to show its back.
 - Body-weight chart with 3 month, 6 month, 1 year and all-time views and an optional goal line.
 - Training calendar (heatmap), workouts per month, longest break, weekly average.
 - Per-exercise progress: heaviest set, estimated one-rep max (Epley) or volume, plus personal records.
@@ -112,7 +116,7 @@ Then open <http://localhost:8080>. Add `?demo` (<http://localhost:8080/?demo>) t
 | File | Purpose |
 |---|---|
 | `js/app.js` | Screens and flow: workout editor, history, progress, library, settings, import |
-| `js/anim.js` | Exercise animations: a small stick-figure rig with forward and inverse kinematics, and 54 movement patterns |
+| `js/anim.js` | Exercise animations: a small stick-figure rig with forward and inverse kinematics, and 100 movement patterns |
 | `js/exercises.js` | Built-in exercises, muscle groups and abbreviations |
 | `js/store.js` | On-device storage, records, last performance, weight suggestions, weekly goal, plan suggestions |
 | `js/importer.js` | Parser that turns the old text notes into workouts |
@@ -120,6 +124,7 @@ Then open <http://localhost:8080>. Add `?demo` (<http://localhost:8080/?demo>) t
 | `js/timer.js` | Rest timer and keeping the screen on during a workout |
 | `js/bodymap.js` | Front and back muscle map |
 | `js/juice.js` | Haptics, ripples, confetti, count-up numbers and sounds |
+| `js/hero.js` | The flexing character on the Progress page, drawn from a mirrored skeleton |
 | `js/hype.js` | Hype sounds: lines spoken with the phone's voice and effects synthesised with the Web Audio API |
 | `js/ui.js` | Small UI helpers: elements, bottom sheets, dialogs, toasts, icons |
 | `js/i18n.js` | English and Turkish interface texts, with automatic language detection |
@@ -149,8 +154,8 @@ It is built with plain HTML, CSS and JavaScript, with no framework, no dependenc
 
 <p align="center">
   <img src="docs/screenshots/tr-home.jpg" alt="Antrenman sekmesi: haftalık hedef ve antrenman günleri, sıradaki plan ve kayıtlı planlar" width="200">
-  <img src="docs/screenshots/tr-workout.jpg" alt="Antrenman kaydı: set set ağırlık, −/+ düğmeli tekrar ve drop tekrarı, tamamlanan setler, motivasyon düğmesi ve geri sayan dinlenme sayacı" width="200">
-  <img src="docs/screenshots/tr-progress.jpg" alt="Gelişim: 12 haftalık grafikle haftalık hedef ve son 7 günün kas haritası" width="200">
+  <img src="docs/screenshots/tr-workout.jpg" alt="Antrenman kaydı: set set ağırlık, −/+ düğmeli tekrar ve drop tekrarı, tamamlanan setler, motivasyon düğmesi ve çerçevesiyle geri sayan dinlenme sayacı" width="200">
+  <img src="docs/screenshots/tr-progress.jpg" alt="Gelişim: kasları çalışmana göre büyüyüp renk değiştiren poz veren karakter ve yıllık antrenman sayısı" width="200">
 </p>
 
 ### Genel bakış
@@ -173,7 +178,9 @@ Telefonun tarayıcısında çalışan bir web uygulamasıdır (PWA): ana ekrana 
 
 **Salonda**
 - Setleri yaptıkça işaretle. Boş bir seti işaretlersen geçen seferki rakamlar yazılır. Set silmeden önce sorar; ✓'nin yanındaki ✕'e yanlışlıkla basınca set gitmez.
-- Dinlenme sayacı kendiliğinden başlar; bitince titreşir ve ses çıkarır. Varsayılan süre (60 sn – 3 dk) genel olarak ve hareket başına ayarlanabilir, −15/+15 ile anında değiştirilir.
+- Her şey otomatik kaydedilir, uygulamayı istediğin an arkaya atabilirsin. **Antrenmanı tamamla** önce ne olacağını gösterir: işaretlenmeyen setler pas geçilmiş sayılır. İstatistiğe girmezler ama planın küçülmez; bir dahaki antrenmanda aynı setler yine önüne gelir ve "pas geçilmişti" yazar.
+- Yanlışlıkla mı bitirdin, eve gidip geri mi döndün? Bugünkü antrenmana Antrenman sekmesinden ya da Geçmiş'ten devam edebilirsin: işaretli setler işaretli kalır, süre kaldığı yerden sayar.
+- Dinlenme sayacı kendiliğinden başlar; bitince titreşir ve ses çıkarır. Varsayılan süre (60 sn – 3 dk) genel olarak ve hareket başına ayarlanabilir, −15/+15 ile anında değiştirilir. Kalan süre hem sayaç kutusunun çerçevesinde hem de içinde dinlenen küçük bir figür olan halkada akar.
 - Antrenman boyunca ekran açık kalır, bir saat ne kadar süredir çalıştığını gösterir. Süre antrenmanla birlikte kaydedilir.
 - Süperset: bir hareketi sonrakine bağla. Bir seti işaretleyince süpersetteki sıradaki harekete geçilir; dinlenme sayacı sondakinden sonra başlar.
 - Makine ayarı notları (ör. "koltuk 4, göğüs pedi 2") her seferinde hareketin üstünde görünür.
@@ -182,7 +189,7 @@ Telefonun tarayıcısında çalışan bir web uygulamasıdır (PWA): ana ekrana 
 **İlerleme**
 - Ağırlık önerisi: geçen sefer bütün setleri tamamladıysan GymLog tek dokunuşla bir üst ağırlığı önerir. Bu harekette daha önce kullandığın bir sonraki ağırlığı seçer (makinenin ağırlık kademelerine uyar), yoksa olağan artışını ekler.
 - Bir hareketi "bir dahakine artır" diye işaretle; öneri bir sonraki antrenmanda seni bekler.
-- Üç hafta ya da daha uzun aradan sonra ağırlıkların %75'iyle başlamayı önerir.
+- Aradan dönüş: iki haftadan uzun aradan sonra her hareket daha hafif başlar. Düşüş; o bölgeye ne kadar süredir çalışılmadığına (4 haftada eski ağırlığın yaklaşık %87'si, 8 haftada %75'i, 6 ayda %55'i), arada başka hareketlerle çalışılıp çalışılmadığına ve aradan önce ne kadar düzenli olduğuna göre hesaplanır. Tek dokunuşla eski rakamlara dönebilirsin. Sonrasında ağırlık bir anda eski haline fırlamaz, aradan önceki seviyeye kademeli çıkar. Bu temkinli bir kuraldır, tıbbi tavsiye değildir.
 - Yeni rekor, seti işaretlediğin anda konfetiyle kutlanır; kayıt özetinde rekorların, hacim, süre ve çalışan kasların haritası görünür.
 
 **Kopyalama ve planlar**
@@ -191,10 +198,12 @@ Telefonun tarayıcısında çalışan bir web uygulamasıdır (PWA): ana ekrana 
 - "Sıradaki" kartı en uzun süredir yapmadığın planı önerir; planlar geçmişinden otomatik olarak da önerilebilir.
 
 **Hareketler**
-- Hazır 56 hareket; her birinde hareketi gösteren animasyonlu bir figür, çalışan kas vurgusu ve kısa bir teknik ipucu.
-- Kendi hareketini ekle: ad, kısaltma, bölgeler, kayıt türü ve 54 animasyondan biri. Hazır hareketlerin adı değiştirilebilir ya da gizlenebilir.
+- Hazır 124 hareket; her birinde hareketi gösteren animasyonlu bir figür, çalışan kas vurgusu ve kısa bir teknik ipucu.
+- Hareketler kasın hangi bölümüne odaklandığını söyler (uzun baş, üst göğüs, yan omuz, arka bacak…); buna göre de arayabilirsin.
+- Kendi hareketini ekle: ad, kısaltma, bölgeler, kayıt türü ve 97 animasyondan biri. Hazır hareketlerin adı değiştirilebilir ya da gizlenebilir.
 
 **Gelişim**
+- Sayfanın üstünde kas gösterisi yapan bir karakter: her kasın boyutu son 12 haftadaki çalışmana, rengi son 7 güne göre değişir; bacak gününü atlarsan belli olur. Vücut geliştirme pozları verir, arkasını dönüp sırtını da gösterir.
 - 3 ay, 6 ay, 1 yıl ve tüm zamanlar görünümlü kilo grafiği, istersen hedef kilo çizgisi.
 - Spor takvimi (ısı haritası), aylık antrenman sayısı, en uzun ara, haftalık ortalama.
 - Hareket bazında gelişim: en ağır set, tahmini 1RM (Epley) ya da hacim; kişisel rekorlar.
