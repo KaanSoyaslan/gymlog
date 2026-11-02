@@ -93,6 +93,17 @@
 }
 /* Vurgu renkleri (Ayarlar → Renk). d: koyu tema, l: açık tema; on: vurgu üstündeki yazı */
 [data-accent="lime"] { --acc-d: #c6f24e; --on-d: #12160a; --acc-l: #4e7d0e; --on-l: #ffffff; }
+[data-accent="green"] { --acc-d: #5fdc72; --on-d: #06210c; --acc-l: #1c7d34; --on-l: #ffffff; }
+[data-accent="mint"] { --acc-d: #7ff0c0; --on-d: #06241a; --acc-l: #0f7a5a; --on-l: #ffffff; }
+[data-accent="ocean"] { --acc-d: #4ad4ee; --on-d: #042029; --acc-l: #0b7285; --on-l: #ffffff; }
+[data-accent="indigo"] { --acc-d: #959fff; --on-d: #11143a; --acc-l: #4650d0; --on-l: #ffffff; }
+[data-accent="orchid"] { --acc-d: #d08bff; --on-d: #230a38; --acc-l: #8a2fc9; --on-l: #ffffff; }
+[data-accent="magenta"] { --acc-d: #f66ee8; --on-d: #2e0529; --acc-l: #a81e9c; --on-l: #ffffff; }
+[data-accent="rose"] { --acc-d: #ff8fa5; --on-d: #2e0712; --acc-l: #c02a4c; --on-l: #ffffff; }
+[data-accent="red"] { --acc-d: #ff6a5e; --on-d: #2b0603; --acc-l: #c8281e; --on-l: #ffffff; }
+[data-accent="coral"] { --acc-d: #ff8f6b; --on-d: #2b1006; --acc-l: #bf4a22; --on-l: #ffffff; }
+[data-accent="lemon"] { --acc-d: #eef25a; --on-d: #232400; --acc-l: #6f7000; --on-l: #ffffff; }
+[data-accent="silver"] { --acc-d: #cdd3da; --on-d: #15181c; --acc-l: #4a5058; --on-l: #ffffff; }
 [data-accent="pink"] { --acc-d: #ff7eb6; --on-d: #2b0717; --acc-l: #c2185b; --on-l: #ffffff; }
 [data-accent="purple"] { --acc-d: #b69cff; --on-d: #1a0f33; --acc-l: #6d4ad8; --on-l: #ffffff; }
 [data-accent="blue"] { --acc-d: #6cb4ff; --on-d: #06182b; --acc-l: #1f6fd1; --on-l: #ffffff; }
@@ -685,7 +696,7 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .week-dots span.today { box-shadow: inset 0 0 0 1.5px var(--accent); }
 
 /* Renk seçici */
-.swatches { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.swatches { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px 2px; }
 .swatch { display: grid; justify-items: center; gap: 5px; min-width: 0; padding: 4px 0; border: 0; background: none; color: var(--muted); font-size: 11px; font-weight: 600; }
 .swatch .dot { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--acc-d); color: var(--on-d); transition: transform 0.2s, box-shadow 0.2s; }
 .swatch .dot .ic { width: 18px; height: 18px; }
@@ -751,22 +762,45 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 
 /* Kas gösterisi yapan karakter */
 .hero-card {
-  --hero-0: color-mix(in srgb, var(--fig) 84%, var(--surface));
-  display: grid; gap: 4px; margin-bottom: 12px; padding: 8px 14px 14px; overflow: hidden;
+  position: relative; display: grid; gap: 4px; margin-bottom: 12px; padding: 8px 14px 14px; overflow: hidden;
   background: radial-gradient(62% 52% at 50% 36%, var(--accent-soft), transparent 75%), var(--surface);
 }
 .hero-stage { display: grid; place-items: center; }
-.hero-svg { display: block; width: 100%; max-width: 270px; height: auto; cursor: pointer; touch-action: manipulation; }
-.hero-svg .b { fill: var(--fig); }
+.hero-svg {
+  --hero-skin: var(--fig); --hero-face: var(--surface); --hero-hair: var(--scene); --hero-outfit: var(--gear);
+  --hero-0: color-mix(in srgb, var(--hero-skin) 84%, var(--surface));
+  display: block; width: 100%; height: auto;
+}
+.hero-stage .hero-svg { max-width: 250px; cursor: pointer; touch-action: manipulation; }
+.hero-svg .b { fill: var(--hero-skin); }
 .hero-svg .m { stroke: color-mix(in srgb, var(--surface) 60%, transparent); stroke-width: 0.9; }
-.hero-svg .hero-trunks { fill: var(--gear); }
-.hero-svg .hero-hair { fill: var(--scene); }
+.hero-svg .hero-trunks { fill: var(--hero-outfit); }
+.hero-svg .hero-hairs { fill: var(--hero-hair); }
+.hero-svg .hero-band { fill: color-mix(in srgb, var(--accent) 68%, #000); }
+.hero-svg .hero-cape { fill: #c7342f; }
+.hero-svg .hero-belt { fill: #1d1e22; stroke: #f2c230; stroke-width: 1; }
+.hero-svg .hero-buckle { fill: #f2c230; stroke: #b88a10; stroke-width: 0.8; }
 .hero-svg .hero-floor { fill: var(--scene-fill); }
 .hero-svg .hero-heart { fill: var(--danger); stroke: var(--surface); stroke-width: 1; }
-.hero-face circle, .hero-face .mouth { fill: var(--surface); }
-.hero-face path { fill: none; stroke: var(--surface); stroke-width: 1.7; stroke-linecap: round; }
+.hero-face circle, .hero-face .mouth { fill: var(--hero-face); }
+.hero-face path { fill: none; stroke: var(--hero-face); stroke-width: 1.7; stroke-linecap: round; }
 .hero-cap { display: grid; gap: 2px; text-align: center; }
 .hero-pose { font-size: 16px; }
 .hero-info { margin: 0; color: var(--text-2); }
 .hero-legend { margin: 2px 0 0; font-size: 11.5px; }
 .banner.comeback { margin-bottom: 12px; }
+
+/* Karakteri özelleştirme */
+.hero-gear { position: absolute; top: 8px; right: 8px; z-index: 1; background: var(--surface-2); }
+.hero-edit-stage { position: sticky; top: -4px; z-index: 2; display: grid; justify-items: center; gap: 2px; margin: -4px -16px 0; padding: 4px 16px 8px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.hero-edit-stage .hero-svg { max-width: 150px; }
+.hero-opts { display: grid; gap: 16px; padding-top: 14px; }
+.hero-opt .section-title { margin: 0 0 8px; }
+.opt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
+.opt-tile { display: grid; justify-items: center; gap: 2px; min-width: 0; padding: 4px 2px 6px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface-2); color: var(--text-2); font-size: 11px; font-weight: 600; overflow: hidden; }
+.opt-tile span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.opt-tile.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+.opt-tile .hero-mini { width: 100%; max-width: 54px; pointer-events: none; }
+.opt-dots { display: flex; flex-wrap: wrap; gap: 10px; }
+.opt-dot { width: 36px; height: 36px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--text) 25%, transparent); }
+.opt-dot.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }

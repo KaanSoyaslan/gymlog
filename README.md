@@ -24,6 +24,7 @@
 </p>
 <p align="center">
   <img src="docs/screenshots/progress.jpg" alt="Progress: a flexing character whose muscles grow and change colour with your training, above the yearly workout count" width="200">
+  <img src="docs/screenshots/customize.jpg" alt="Customize the character: height, gender, skin tone, hair, hats, glasses and accessories with a live preview" width="200">
   <img src="docs/screenshots/library.jpg" alt="Exercise library with an animation for every exercise" width="200">
   <img src="docs/screenshots/detail.jpg" alt="Exercise detail: animation, tip, best set and estimated one-rep max" width="200">
 </p>
@@ -34,7 +35,7 @@ GymLog started as a plain text file on a phone: a date with the body weight in b
 
 GymLog keeps that speed and adds the rest. Start a workout by copying a previous one or a saved plan, tick off your sets while the rest timer runs, take the suggested weight when you are ready to go up, and save. Every exercise has a small animation, so abbreviations like `LPD` or `D Rise` turn into something you can recognise. Your old notes can be pasted in once and are converted automatically.
 
-It is a progressive web app (PWA): it runs in the phone's browser, can be installed to the home screen and works offline at the gym. There is no server and no account; everything is stored on your device. The interface is available in English and Turkish, in dark or light mode with seven accent colours (neon, pink, purple, blue, teal, orange, gold), and it is built to feel good to use: screens slide in, buttons ripple, and the phone vibrates when you complete a set.
+It is a progressive web app (PWA): it runs in the phone's browser, can be installed to the home screen and works offline at the gym. There is no server and no account; everything is stored on your device. The interface is available in English and Turkish, in dark or light mode with 18 accent colours, and it is built to feel good to use: screens slide in, buttons ripple, and the phone vibrates when you complete a set.
 
 ## Features
 
@@ -74,6 +75,8 @@ It is a progressive web app (PWA): it runs in the phone's browser, can be instal
 
 **Progress**
 - A flexing character at the top of the page: each muscle's size follows your last 12 weeks of training and its colour your last 7 days, so skipping leg day shows. It runs through bodybuilding poses and turns around to show its back.
+- Height and gender (Settings → Profile) shape the character: height sets the length of the body, gender the proportions, and height together with your latest weight its build. Everything stays on your device.
+- Make the character yours with the gear button: skin tone, 9 hairstyles, 10 hats (cap, top hat, viking helmet, crown…), glasses, beards, a gold chain, champion belt, cape, headphones and more, with a live preview and a random button.
 - Body-weight chart with 3 month, 6 month, 1 year and all-time views and an optional goal line.
 - Training calendar (heatmap), workouts per month, longest break, weekly average.
 - Per-exercise progress: heaviest set, estimated one-rep max (Epley) or volume, plus personal records.
@@ -124,7 +127,8 @@ Then open <http://localhost:8080>. Add `?demo` (<http://localhost:8080/?demo>) t
 | `js/timer.js` | Rest timer and keeping the screen on during a workout |
 | `js/bodymap.js` | Front and back muscle map |
 | `js/juice.js` | Haptics, ripples, confetti, count-up numbers and sounds |
-| `js/hero.js` | The flexing character on the Progress page, drawn from a mirrored skeleton |
+| `js/hero.js` | The flexing character on the Progress page, drawn from a mirrored skeleton, and its customization screen |
+| `js/herogear.js` | The character's hair, hats, glasses, beards and accessories, and its build from height, gender and weight |
 | `js/hype.js` | Hype sounds: lines spoken with the phone's voice and effects synthesised with the Web Audio API |
 | `js/ui.js` | Small UI helpers: elements, bottom sheets, dialogs, toasts, icons |
 | `js/i18n.js` | English and Turkish interface texts, with automatic language detection |
@@ -156,6 +160,7 @@ It is built with plain HTML, CSS and JavaScript, with no framework, no dependenc
   <img src="docs/screenshots/tr-home.jpg" alt="Antrenman sekmesi: haftalık hedef ve antrenman günleri, sıradaki plan ve kayıtlı planlar" width="200">
   <img src="docs/screenshots/tr-workout.jpg" alt="Antrenman kaydı: set set ağırlık, −/+ düğmeli tekrar ve drop tekrarı, tamamlanan setler, motivasyon düğmesi ve çerçevesiyle geri sayan dinlenme sayacı" width="200">
   <img src="docs/screenshots/tr-progress.jpg" alt="Gelişim: kasları çalışmana göre büyüyüp renk değiştiren poz veren karakter ve yıllık antrenman sayısı" width="200">
+  <img src="docs/screenshots/tr-customize.jpg" alt="Karakteri özelleştirme: canlı önizlemeyle boy, cinsiyet, ten rengi, saç, şapka, gözlük ve aksesuarlar" width="200">
 </p>
 
 ### Genel bakış
@@ -164,7 +169,7 @@ GymLog, telefondaki düz bir metin dosyasından doğdu: parantez içinde kiloyla
 
 GymLog bu hızı korur, eksikleri tamamlar. Antrenmana önceki bir antrenmanı ya da kayıtlı bir planı kopyalayarak başlarsın, dinlenme sayacı çalışırken setleri işaretlersin, artırmaya hazırsan önerilen ağırlığı alırsın ve kaydedersin. Her hareketin küçük bir animasyonu var; `LPD` ya da `D Rise` gibi kısaltmalar gözle tanınır hale gelir. Eski notlarını bir kez yapıştırman yeterli, otomatik olarak antrenmanlara çevrilir.
 
-Telefonun tarayıcısında çalışan bir web uygulamasıdır (PWA): ana ekrana eklenebilir ve salonda internet olmasa da açılır. Sunucu ya da hesap yok; her şey cihazında saklanır. Arayüz Türkçe ve İngilizce; koyu ya da açık temada yedi vurgu rengiyle (neon, pembe, mor, mavi, turkuaz, turuncu, altın) kullanılabilir. Kullanırken keyif versin diye ekranlar kayarak gelir, düğmeler dalgalanır, seti tamamlayınca telefon titrer.
+Telefonun tarayıcısında çalışan bir web uygulamasıdır (PWA): ana ekrana eklenebilir ve salonda internet olmasa da açılır. Sunucu ya da hesap yok; her şey cihazında saklanır. Arayüz Türkçe ve İngilizce; koyu ya da açık temada 18 vurgu rengiyle kullanılabilir. Kullanırken keyif versin diye ekranlar kayarak gelir, düğmeler dalgalanır, seti tamamlayınca telefon titrer.
 
 ### Özellikler
 
@@ -204,6 +209,8 @@ Telefonun tarayıcısında çalışan bir web uygulamasıdır (PWA): ana ekrana 
 
 **Gelişim**
 - Sayfanın üstünde kas gösterisi yapan bir karakter: her kasın boyutu son 12 haftadaki çalışmana, rengi son 7 güne göre değişir; bacak gününü atlarsan belli olur. Vücut geliştirme pozları verir, arkasını dönüp sırtını da gösterir.
+- Boy ve cinsiyet (Ayarlar → Profil) karakteri şekillendirir: boy vücudun uzunluğunu, cinsiyet oranlarını, boy ve son kilon birlikte yapısını belirler. Bunların hepsi cihazında kalır.
+- Dişli düğmesiyle karakteri kendine benzet: ten rengi, 9 saç modeli, 10 şapka (kep, silindir, viking kaskı, taç…), gözlük, sakal, altın zincir, şampiyon kemeri, pelerin, kulaklık ve daha fazlası; canlı önizleme ve rastgele düğmesiyle.
 - 3 ay, 6 ay, 1 yıl ve tüm zamanlar görünümlü kilo grafiği, istersen hedef kilo çizgisi.
 - Spor takvimi (ısı haritası), aylık antrenman sayısı, en uzun ara, haftalık ortalama.
 - Hareket bazında gelişim: en ağır set, tahmini 1RM (Epley) ya da hacim; kişisel rekorlar.

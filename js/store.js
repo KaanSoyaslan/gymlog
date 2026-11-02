@@ -16,7 +16,7 @@ function blank() {
     measurements: [], // { date, waist, chest, arm, thigh, hip } (cm)
     exEdits: {},    // hazır hareketlerde yapılan değişiklikler { id: { name, short, ... , hidden } }
     draft: null,    // devam eden antrenman
-    settings: { goalWeight: null, theme: 'auto', lang: 'auto', lastBackup: null, weeklyGoal: 3, restDefault: 90, keepAwake: true, haptics: true },
+    settings: { goalWeight: null, theme: 'auto', lang: 'auto', lastBackup: null, weeklyGoal: 3, restDefault: 90, keepAwake: true, haptics: true, height: null, gender: null, hero: {} },
   };
 }
 

@@ -21,7 +21,7 @@ import { haptic, confetti, countUp, unlockAudio, stagger, pop } from './juice.js
 import { startRest, stopRest, keepAwake } from './timer.js';
 import { bodyMap } from './bodymap.js';
 import { hypeButton, hypeBoard, playHype } from './hype.js';
-import { heroCard } from './hero.js';
+import { heroCard, heroEditor, profileFields } from './hero.js';
 
 const view = document.getElementById('view');
 const nav = document.getElementById('nav');
@@ -44,8 +44,9 @@ const MOODS = [
 const moodOf = (v) => MOODS.find((m) => m.v === v);
 // Vurgu renkleri; tonları css/style.css'te [data-accent] altında
 const ACCENTS = [
-  { id: 'lime', name: 'Neon' }, { id: 'pink', name: 'Pembe' }, { id: 'purple', name: 'Mor' }, { id: 'blue', name: 'Mavi' },
-  { id: 'teal', name: 'Turkuaz' }, { id: 'orange', name: 'Turuncu' }, { id: 'gold', name: 'Altın' },
+  { id: 'lime', name: 'Neon' }, { id: 'green', name: 'Yeşil' }, { id: 'mint', name: 'Nane' }, { id: 'teal', name: 'Turkuaz' }, { id: 'ocean', name: 'Okyanus' }, { id: 'blue', name: 'Mavi' },
+  { id: 'indigo', name: 'Çivit' }, { id: 'purple', name: 'Mor' }, { id: 'orchid', name: 'Orkide' }, { id: 'magenta', name: 'Fuşya' }, { id: 'pink', name: 'Pembe' }, { id: 'rose', name: 'Gül' },
+  { id: 'red', name: 'Kırmızı' }, { id: 'coral', name: 'Mercan' }, { id: 'orange', name: 'Turuncu' }, { id: 'gold', name: 'Altın' }, { id: 'lemon', name: 'Limon' }, { id: 'silver', name: 'Gümüş' },
 ];
 const dk = () => t('dk');
 const sn = () => t('sn');
@@ -1581,6 +1582,10 @@ function SettingsView() {
     toggleRow(t('Titreşim'), t('Set tamamlanınca ve sayaç bitince titreşir.'), state.settings.haptics !== false, (v) => { state.settings.haptics = v; commit(); haptic(15); }),
     hypeToggle,
     boardBtn)));
+
+  page.append(section(t('Profil'),
+    h('div.card', null, profileFields()),
+    h('div.list.mt', null, settingRow('gear', t('Karakteri özelleştir'), t('Gelişim ekranındaki karakterin saçı, şapkası, gözlüğü ve aksesuarları.'), () => heroEditor()))));
 
   const goal = h('input.input.w-kg', { inputmode: 'decimal', value: state.settings.goalWeight ?? '', placeholder: 'kg', onchange: (e) => { state.settings.goalWeight = parseNum(e.target.value); commit(); toast(t('Hedef kaydedildi')); } });
   page.append(section(t('Tercihler'), h('div.card', null,
